@@ -31,18 +31,35 @@ import (
 	"fmt"
 )
 
+// Go wrapper around the internal C ykpiv error integers. Error codes as
+// they exist in ykpiv.h are brought into Go, since we can add some additional
+// context around them, as well as implement the Error interface.
 type Error struct {
-	Code    int8
+
+	// int8 representing the underlying error code as ykpiv had given us. The
+	// exact numbers can be found in your local ykpiv.h, inside the ykpiv_rc
+	// enum.
+	Code int8
+
+	// Human readable message regarding what happened.
 	Message string
-	Where   string
+
+	// internal marker to know where this fell out of. it's helpful to know if
+	// this came out of ykpiv_sign_data or ykpiv_done
+	where string
 }
 
+// Check to see if another Error is the same as our struct. This compares
+// the underlying Code integer.
 func (e Error) Equal(err Error) bool {
 	return e.Code == err.Code
 }
 
+// Error interface. This will sprintf a string containing where this error
+// came from, the human message, and the underlying ykpiv code, to aid with
+// debugging.
 func (e Error) Error() string {
-	return fmt.Sprintf("%s: %s (%d)", e.Where, e.Message, e.Code)
+	return fmt.Sprintf("%s: %s (%d)", e.where, e.Message, e.Code)
 }
 
 func createErrorLookupMap(errs ...Error) map[int8]Error {
@@ -87,7 +104,7 @@ var (
 
 func getError(whoops C.ykpiv_rc, name string) error {
 	if err, ok := errorLookupMap[int8(whoops)]; ok {
-		err.Where = fmt.Sprintf("ykpiv ykpiv_%s", name)
+		err.where = fmt.Sprintf("ykpiv ykpiv_%s", name)
 		return err
 	}
 	return nil

@@ -75,9 +75,9 @@ func (y Yubikey) Close() error {
 		return err
 	}
 
-	// This will free the underlying state, no need to C.free the object by
-	// hand here
-
+	// calling ykpiv_done will free the underlying ykpiv_state. Doing a C.free
+	// here will result in a double-free, but thanks for noticing and keeping
+	// memory tidy!
 	return nil
 }
 
