@@ -37,6 +37,10 @@ type Error struct {
 	Where   string
 }
 
+func (e Error) Equal(err Error) bool {
+	return e.Code == err.Code
+}
+
 func (e Error) Error() string {
 	return fmt.Sprintf("%s: %s (%d)", e.Where, e.Message, e.Code)
 }
