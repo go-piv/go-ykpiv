@@ -120,6 +120,17 @@ func (y Yubikey) Certificate(slot Slot) (*x509.Certificate, error) {
 	return x509.ParseCertificate(der)
 }
 
+func (y Yubikey) Login(pin string) error {
+	tries := C.int(0)
+	cPin := (*C.char)(C.CBytes([]byte(pin)))
+	defer C.free(unsafe.Pointer(cPin))
+
+	if err := getError(C.ykpiv_verify(y.state, cPin, &tries), "verify"); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Create a new Yubikey.
 //
 // This will use the options in the given `ykpiv.Options` struct to
