@@ -64,7 +64,7 @@ func expandBytes(els ...[]byte) []byte {
 	return out
 }
 
-func (y Yubikey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	// XXX: yank the C.YKPIV_ALGO_RSA2048 out and replace it with a real check
 	// on what the slot is under the hood.
 
@@ -89,12 +89,12 @@ func (y Yubikey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]
 	var cSignature = (*C.uchar)(C.malloc(cSignatureLen))
 
 	if err := getError(C.ykpiv_sign_data(
-		y.state,
+		s.yubikey.state,
 		cDigest, cDigestLen,
 		cSignature, &cSignatureLen,
 
 		C.YKPIV_ALGO_RSA2048,
-		C.uchar(0x9a),
+		C.uchar(s.id.Key),
 	), "sign_data"); err != nil {
 		return nil, err
 	}

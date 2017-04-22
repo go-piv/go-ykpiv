@@ -31,8 +31,6 @@ import "C"
 import (
 	"fmt"
 	"unsafe"
-
-	"crypto/x509"
 )
 
 // Configuration for initialization of the Yubikey, as well as options that
@@ -97,29 +95,6 @@ func (y Yubikey) Version() ([]byte, error) {
 }
 
 //
-func (y Yubikey) Certificate(slot Slot) (*x509.Certificate, error) {
-	var dataLen C.ulong = 3072
-	var data *C.uchar = (*C.uchar)(C.malloc(3072))
-	defer C.free(unsafe.Pointer(data))
-
-	if err := getError(C.ykpiv_fetch_object(y.state, C.int(slot), data, &dataLen), "fetch_object"); err != nil {
-		return nil, err
-	}
-
-	// some magic shit going down here. I'm not exactly sure what. This needs
-	// a metric fuckload of testing. There's some sort of length encoding
-	// in the underlying string. My guess is the DER that I've got back
-	// falls into the same general length and never triggered some voodoo
-	// with dynamic length byte prefixes. There's a p. good chance this is
-	// just outright wrong.
-	der := C.GoBytes(unsafe.Pointer(data), C.int(dataLen))[4 : dataLen-5]
-
-	// If this is throwing sequence truncated and/or trailing byte errors
-	// the first thing to double check is the byte mangling above, and
-	// if the comment above applies to this.
-	return x509.ParseCertificate(der)
-}
-
 func (y Yubikey) Login(pin string) error {
 	tries := C.int(0)
 	cPin := (*C.char)(C.CBytes([]byte(pin)))

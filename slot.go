@@ -28,10 +28,86 @@ package ykpiv
 */
 import "C"
 
-type Slot int32
+import (
+	"fmt"
+
+	"crypto"
+	"crypto/x509"
+
+	"unsafe"
+)
+
+// Slot ID (0x9a, etc) {{{
+
+type SlotId struct {
+	Certificate int32
+	Key         int32
+}
+
+func (s SlotId) String() string {
+	return fmt.Sprintf("Slot key=%x", s.Key)
+}
 
 var (
-	Authentication Slot = C.YKPIV_OBJ_AUTHENTICATION
+	Authentication SlotId = SlotId{
+		Certificate: C.YKPIV_OBJ_AUTHENTICATION,
+		Key:         C.YKPIV_KEY_AUTHENTICATION,
+	}
 )
+
+// }}}
+
+type Slot struct {
+	yubikey     Yubikey
+	id          SlotId
+	certificate x509.Certificate
+}
+
+func (y Yubikey) Authentication() (*Slot, error) {
+	return y.Slot(Authentication)
+}
+
+func (y Yubikey) Slot(id SlotId) (*Slot, error) {
+	/* Right, let's see what we can do here */
+	slot := Slot{yubikey: y, id: id}
+
+	certificate, err := slot.Certificate()
+	if err != nil {
+		return nil, err
+	}
+	slot.certificate = *certificate
+	return &slot, nil
+}
+
+func (s Slot) Public() crypto.PublicKey {
+	return s.certificate.PublicKey
+}
+
+func (s Slot) Id() SlotId {
+	return s.id
+}
+
+func (y Slot) Certificate() (*x509.Certificate, error) {
+	var dataLen C.ulong = 3072
+	var data *C.uchar = (*C.uchar)(C.malloc(3072))
+	defer C.free(unsafe.Pointer(data))
+
+	if err := getError(C.ykpiv_fetch_object(y.yubikey.state, C.int(y.id.Certificate), data, &dataLen), "fetch_object"); err != nil {
+		return nil, err
+	}
+
+	// some magic shit going down here. I'm not exactly sure what. This needs
+	// a metric fuckload of testing. There's some sort of length encoding
+	// in the underlying string. My guess is the DER that I've got back
+	// falls into the same general length and never triggered some voodoo
+	// with dynamic length byte prefixes. There's a p. good chance this is
+	// just outright wrong.
+	der := C.GoBytes(unsafe.Pointer(data), C.int(dataLen))[4 : dataLen-5]
+
+	// If this is throwing sequence truncated and/or trailing byte errors
+	// the first thing to double check is the byte mangling above, and
+	// if the comment above applies to this.
+	return x509.ParseCertificate(der)
+}
 
 // vim: foldmethod=marker
