@@ -67,12 +67,12 @@ type Yubikey struct {
 // Close the Yubikey object, and preform any finization needed to avoid leaking
 // memory or holding locks.
 func (y Yubikey) Close() error {
-	if C.ykpiv_disconnect(y.state) != C.YKPIV_OK {
-		return fmt.Errorf("ykpiv: ykpiv_disconnect Failed to disconnect the reader.")
+	if err := getError(C.ykpiv_disconnect(y.state), "disconnect"); err != nil {
+		return err
 	}
 
-	if C.ykpiv_done(y.state) != C.YKPIV_OK {
-		return fmt.Errorf("ykpiv: ykpiv_done Failed to close state.")
+	if err := getError(C.ykpiv_done(y.state), "done"); err != nil {
+		return err
 	}
 
 	// This will free the underlying state, no need to C.free the object by
@@ -89,8 +89,8 @@ func (y Yubikey) Version() ([]byte, error) {
 	var version unsafe.Pointer = C.malloc(versionLength)
 	defer C.free(version)
 
-	if C.ykpiv_get_version(y.state, (*C.char)(version), versionLength) != C.YKPIV_OK {
-		return nil, fmt.Errorf("ykpiv: ykpiv_get_version Failed to retrieve application version.")
+	if err := getError(C.ykpiv_get_version(y.state, (*C.char)(version), versionLength), "get_version"); err != nil {
+		return nil, err
 	}
 
 	return C.GoBytes(version, C.int(versionLength)), nil
@@ -102,8 +102,8 @@ func (y Yubikey) Certificate(slot Slot) (*x509.Certificate, error) {
 	var data *C.uchar = (*C.uchar)(C.malloc(3072))
 	defer C.free(unsafe.Pointer(data))
 
-	if C.ykpiv_fetch_object(y.state, C.int(slot), data, &dataLen) != C.YKPIV_OK {
-		return nil, fmt.Errorf("ykpiv: ykpiv_fetch_object Failed fetching certificate.")
+	if err := getError(C.ykpiv_fetch_object(y.state, C.int(slot), data, &dataLen), "fetch_object"); err != nil {
+		return nil, err
 	}
 
 	// some magic shit going down here. I'm not exactly sure what. This needs
