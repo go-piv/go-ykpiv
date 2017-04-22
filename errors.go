@@ -85,21 +85,9 @@ var (
 	AlgorithmError      = Error{Code: C.YKPIV_ALGORITHM_ERROR, Message: "Algorithm Error"}
 	PINLockedError      = Error{Code: C.YKPIV_PIN_LOCKED, Message: "PIN Locked"}
 
-	errorLookupMap = createErrorLookupMap(
-		MemeoryError,
-		PCSCError,
-		SizeError,
-		AppletError,
-		AuthenticationError,
-		RandomnessError,
-		GenericError,
-		KeyError,
-		ParseError,
-		WrongPIN,
-		InvalidObject,
-		AlgorithmError,
-		PINLockedError,
-	)
+	errorLookupMap = createErrorLookupMap(MemeoryError, PCSCError, SizeError, AppletError,
+		AuthenticationError, RandomnessError, GenericError, KeyError, ParseError,
+		WrongPIN, InvalidObject, AlgorithmError, PINLockedError)
 )
 
 func getError(whoops C.ykpiv_rc, name string) error {

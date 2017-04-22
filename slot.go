@@ -31,8 +31,7 @@ import "C"
 type Slot int32
 
 var (
-	SlotAuthentication Slot = C.YKPIV_OBJ_AUTHENTICATION
-	// add stuff that's not just 9a
+	Authentication Slot = C.YKPIV_OBJ_AUTHENTICATION
 )
 
 // vim: foldmethod=marker
