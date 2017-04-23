@@ -84,7 +84,7 @@ func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byt
 
 	prefix, ok := hashOIDs[hash]
 	if !ok {
-		return nil, fmt.Errorf("ykpiv: rsa digest: Unsupported algorithm")
+		return nil, fmt.Errorf("ykpiv: Sign: Unsupported algorithm")
 	}
 	digest = append(prefix, digest...)
 
