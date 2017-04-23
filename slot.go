@@ -166,7 +166,36 @@ func (y Slot) Certificate() (*x509.Certificate, error) {
 	// If this is throwing sequence truncated and/or trailing byte errors
 	// the first thing to double check is the byte mangling above, and
 	// if the comment above applies to this.
-	return x509.ParseCertificate(der)
+	return x509.ParseCertificate(bytes.Data)
+}
+
+func (y Slot) Update(cert x509.Certificate) error {
+	bytes := encoding.Bytes{}
+
+	bytes.Prefix.Magic = 0x70
+
+	bytes.Data = cert.Raw
+
+	bytes.Postfix.Magic = 0x71
+	bytes.Postfix.MoreMagic = 1
+	bytes.Postfix.Compress = 0
+	bytes.Postfix.LRC = 0xFE
+
+	digitalTerroristPoison := bytes.Encode()
+
+	cDigitalTerroristPoison := (*C.uchar)(C.CBytes(digitalTerroristPoison))
+	cDigitalTerroristPoisonLen := C.size_t(len(digitalTerroristPoison))
+	defer C.free(unsafe.Pointer(cDigitalTerroristPoison))
+
+	if err := getError(C.ykpiv_save_object(
+		y.yubikey.state,
+		C.int(y.id.Certificate),
+		cDigitalTerroristPoison, cDigitalTerroristPoisonLen,
+	), "save_object"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // vim: foldmethod=marker
