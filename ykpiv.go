@@ -97,7 +97,7 @@ func (y Yubikey) Version() ([]byte, error) {
 //
 func (y Yubikey) Login(pin string) error {
 	tries := C.int(0)
-	cPin := (*C.char)(C.CBytes([]byte(pin)))
+	cPin := (*C.char)(C.CString(pin))
 	defer C.free(unsafe.Pointer(cPin))
 
 	if err := getError(C.ykpiv_verify(y.state, cPin, &tries), "verify"); err != nil {
