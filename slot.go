@@ -35,6 +35,8 @@ import (
 	"crypto/x509"
 
 	"unsafe"
+
+	"pault.ag/go/ykpiv/internal/encoding"
 )
 
 // SlotId encapsulates the Identifiers required to preform key operations
@@ -154,13 +156,12 @@ func (y Slot) Certificate() (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	// some magic shit going down here. I'm not exactly sure what. This needs
-	// a metric fuckload of testing. There's some sort of length encoding
-	// in the underlying string. My guess is the DER that I've got back
-	// falls into the same general length and never triggered some voodoo
-	// with dynamic length byte prefixes. There's a p. good chance this is
-	// just outright wrong.
-	der := C.GoBytes(unsafe.Pointer(data), C.int(dataLen))[4 : dataLen-5]
+	der := C.GoBytes(unsafe.Pointer(data), C.int(dataLen))
+
+	bytes, _, err := encoding.Decode(der)
+	if err != nil {
+		return nil, err
+	}
 
 	// If this is throwing sequence truncated and/or trailing byte errors
 	// the first thing to double check is the byte mangling above, and
