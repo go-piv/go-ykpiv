@@ -98,7 +98,7 @@ var (
 type Slot struct {
 	yubikey     Yubikey
 	id          SlotId
-	certificate x509.Certificate
+	certificate *x509.Certificate
 }
 
 // Get the PIV Authentication Slot off the Yubikey. This is identical to
@@ -131,7 +131,7 @@ func (y Yubikey) Slot(id SlotId) (*Slot, error) {
 	if err != nil {
 		return nil, err
 	}
-	slot.certificate = *certificate
+	slot.certificate = certificate
 	return &slot, nil
 }
 
@@ -146,8 +146,16 @@ func (s Slot) Id() SlotId {
 	return s.id
 }
 
-// Get the x509.Certificate stored in the PIV Slot.
 func (y Slot) Certificate() (*x509.Certificate, error) {
+	var err error
+	if y.certificate == nil {
+		y.certificate, err = y.getCertificate()
+	}
+	return y.certificate, err
+}
+
+// Get the x509.Certificate stored in the PIV Slot.
+func (y Slot) getCertificate() (*x509.Certificate, error) {
 	var dataLen C.ulong = 3072
 	var data *C.uchar = (*C.uchar)(C.malloc(3072))
 	defer C.free(unsafe.Pointer(data))
