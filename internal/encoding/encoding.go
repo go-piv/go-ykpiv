@@ -51,10 +51,12 @@ func expandBytes(els ...[]byte) []byte {
 	return out
 }
 
+// Encode a Bytes object into one of these length encoded and tagged byte
+// streams
 func (b Bytes) Encode() []byte {
 	return expandBytes(
 		[]byte{b.Prefix.Magic},
-		lengthBytes(int32(len(b.Data))),
+		lengthBytes(int16(len(b.Data))),
 		b.Data,
 		[]byte{
 			b.Postfix.Magic,
@@ -66,7 +68,8 @@ func (b Bytes) Encode() []byte {
 	)
 }
 
-func lengthBytes(length int32) []byte {
+// Use a dynamic length header to determine the length of the bytes following.
+func lengthBytes(length int16) []byte {
 	if length < 0x80 {
 		return []byte{byte(length)}
 	}
@@ -80,15 +83,15 @@ func lengthBytes(length int32) []byte {
 	}
 }
 
-func determineLength(data []byte) (int, int32, error) {
+func determineLength(data []byte) (int, int16, error) {
 	if data[0] < 0x81 {
-		return 1, int32(data[0]), nil
+		return 1, int16(data[0]), nil
 	}
 	if data[0]&0x7F == 1 {
-		return 2, int32(data[1]), nil
+		return 2, int16(data[1]), nil
 	}
 	if data[0]&0x7F == 2 {
-		return 3, int32((int32(data[1]) << 8) + int32(data[2])), nil
+		return 3, int16((int16(data[1]) << 8) + int16(data[2])), nil
 	}
 	return 0, 0, fmt.Errorf("Some jacked up bytes in our header")
 }
