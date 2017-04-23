@@ -118,6 +118,9 @@ func (y Yubikey) KeyManagement() (*Slot, error) {
 }
 
 // Get a Slot off of the Yubikey by the SlotId.
+//
+// This will trigger an attempt to get (and parse) the x509 Certificate
+// for this slot. Only slots with an x509 Certificate can be used.
 func (y Yubikey) Slot(id SlotId) (*Slot, error) {
 	/* Right, let's see what we can do here */
 	slot := Slot{yubikey: y, id: id}
