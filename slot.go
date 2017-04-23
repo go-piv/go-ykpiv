@@ -77,12 +77,12 @@ var (
 	// used to verify that the PIV credential was issued by an authorized
 	// entity, has not expired, and has not been revoked.
 	CardAuthentication SlotId = SlotId{
-		Certificate: C.YKPIV_OBJ_CARDAUTH,
+		Certificate: C.YKPIV_OBJ_CARD_AUTH,
 		Key:         C.YKPIV_KEY_CARDAUTH,
 	}
 
 	KeyManagement SlotId = SlotId{
-		Certificate: C.YKPIV_OBJ_KEYMGM,
+		Certificate: C.YKPIV_OBJ_KEY_MANAGEMENT,
 		Key:         C.YKPIV_KEY_KEYMGM,
 	}
 )
