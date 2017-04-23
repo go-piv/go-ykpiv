@@ -27,6 +27,16 @@ Signing and Decryption through that interface. However, some management function
 are not exposed in the PKCS#11 OpenSC interface, so this library may be of use
 when one wants to write a new Certificate, or set PINs.
 
+Installation
+============
+
+Debian
+------
+
+```
+sudo apt install build-essential libykpiv-dev
+```
+
 Examples
 ========
 
