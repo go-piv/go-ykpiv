@@ -34,6 +34,8 @@ import (
 	"unsafe"
 
 	"crypto"
+
+	"pault.ag/go/ykpiv/internal/pkcs1v15"
 )
 
 // It's never a real party until you import both `unsafe`, *and* `crypto`.
@@ -57,33 +59,12 @@ var hashOIDs = map[crypto.Hash][]byte{
 		0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40},
 }
 
-// PKCS#1 1.5 defines a method to pad data passed into a signing operation
-// which is (basically) to set some bits at the lower indexes, then a bunch of
-// 0xFF, finally, a 0x00, then the data until the end of the block.
-func prepareDigest(hash crypto.Hash, digest []byte, padLen int) []byte {
-	padding := make([]byte, (padLen - 3 - len(digest)))
-	for i := 0; i < len(padding); i++ {
-		padding[i] = 0xFF
-	}
-	return expandBytes([]byte{0x00, 0x01}, padding, []byte{0x00}, digest)
+func prepareDigestForRSA2048(digest []byte) []byte {
+	return pkcs1v15.Pad(digest, 256)
 }
 
-func prepareDigestForRSA2048(hash crypto.Hash, digest []byte) []byte {
-	return prepareDigest(hash, digest, 256)
-}
-
-func prepareDigestForRSA1024(hash crypto.Hash, digest []byte) []byte {
-	return prepareDigest(hash, digest, 128)
-}
-
-// Take some byte arrays, and return the concatenation of all of those byte
-// arrays. It's basically like append, but for byte arrays, not bytes.
-func expandBytes(els ...[]byte) []byte {
-	out := []byte{}
-	for _, el := range els {
-		out = append(out, el...)
-	}
-	return out
+func prepareDigestForRSA1024(digest []byte) []byte {
+	return pkcs1v15.Pad(digest, 128)
 }
 
 // Sign implements the crypto.Signer.Sign interface.
@@ -107,7 +88,7 @@ func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byt
 	}
 	digest = append(prefix, digest...)
 
-	computedDigest := prepareDigestForRSA2048(hash, digest)
+	computedDigest := prepareDigestForRSA2048(digest)
 
 	var cDigest = (*C.uchar)(C.CBytes(computedDigest))
 	var cDigestLen = C.size_t(len(computedDigest))
