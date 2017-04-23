@@ -41,10 +41,6 @@ func (s Slot) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]
 	// XXX: yank the C.YKPIV_ALGO_RSA2048 out and replace it with a real check
 	// on what the slot is under the hood.
 
-	//   ykpiv_rc ykpiv_decipher_data(ykpiv_state *state, const unsigned char *enc_in,
-	//                                size_t in_len, unsigned char *enc_out, size_t *out_len,
-	//                                unsigned char algorithm, unsigned char key);
-
 	var cMessage = (*C.uchar)(C.CBytes(msg))
 	defer C.free(unsafe.Pointer(cMessage))
 	var cMessageLen = C.size_t(len(msg))
