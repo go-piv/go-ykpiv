@@ -136,7 +136,7 @@ func Get(slot ykpiv.Slot, c *cli.Context) error {
 	}
 	client := &http.Client{Transport: transport}
 
-	resp, err := client.Get("https://certlint.paultag.house:443")
+	resp, err := client.Get(c.String("url"))
 	if err != nil {
 		return err
 	}
