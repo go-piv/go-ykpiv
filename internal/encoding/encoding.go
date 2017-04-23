@@ -28,6 +28,13 @@ import (
 // my half-assed 2am read of the yubico-piv-tool source code. In particular
 // the Postfix bits don't even pretend to be real.
 
+// Some sort of magical internal Yubikey format with length defined strings.
+// I'ts not entirely clear to me what all this is (in particular, the `Magic`
+// and `MoreMagic` fields).
+//
+// I'm not going to document this object, because everything I know about it
+// is a wild guess, and I don't want to trick anyone reading the source into
+// thinking I know anything about this.
 type Bytes struct {
 	Prefix struct {
 		Magic byte
@@ -43,6 +50,8 @@ type Bytes struct {
 	Data []byte
 }
 
+// Basically like append(), but rather than appending a byte, it's appending
+// a byte array onto a byte array. For a few byte arrays.
 func expandBytes(els ...[]byte) []byte {
 	out := []byte{}
 	for _, el := range els {
