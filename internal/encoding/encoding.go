@@ -114,8 +114,8 @@ func determineLength(data []byte) (int, int16, error) {
 //
 // MAGIC | LENGTH | BYTES | POSTFIX
 //
-// Magic is a one byte tag. So far I've just seen 0x70.
-// Length is the dynamicly sized length header as seen in determineLength.
+// MAGIC is a one byte tag. So far I've just seen 0x70.
+// LENGTH is the dynamicly sized length header as seen in determineLength.
 // BYTES is that good good crypto we're after.
 // POSTFIX are a set of trailing bytes to tell someone what to do with this
 //         data pile we've got sitting on our front door.
