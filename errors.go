@@ -51,8 +51,12 @@ type Error struct {
 
 // Check to see if another Error is the same as our struct. This compares
 // the underlying Code integer.
-func (e Error) Equal(err Error) bool {
-	return e.Code == err.Code
+func (e Error) Equal(err error) bool {
+	otherError, ok := err.(Error)
+	if !ok {
+		return false
+	}
+	return e.Code == otherError.Code
 }
 
 // Error interface. This will sprintf a string containing where this error
