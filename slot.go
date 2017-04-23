@@ -137,16 +137,16 @@ func (y Yubikey) Slot(id SlotId) (*Slot, error) {
 
 // Return the crypto.PublicKey that we know corresponds to the Certificate
 // we have on hand.
-func (s Slot) Public() crypto.PublicKey {
+func (s *Slot) Public() crypto.PublicKey {
 	return s.certificate.PublicKey
 }
 
 // Get the SlotId for the current Slot
-func (s Slot) Id() SlotId {
+func (s *Slot) Id() SlotId {
 	return s.id
 }
 
-func (y Slot) Certificate() (*x509.Certificate, error) {
+func (y *Slot) Certificate() (*x509.Certificate, error) {
 	var err error
 	if y.certificate == nil {
 		y.certificate, err = y.getCertificate()
@@ -155,7 +155,8 @@ func (y Slot) Certificate() (*x509.Certificate, error) {
 }
 
 // Get the x509.Certificate stored in the PIV Slot.
-func (y Slot) getCertificate() (*x509.Certificate, error) {
+func (y *Slot) getCertificate() (*x509.Certificate, error) {
+	fmt.Printf("Cert load\n")
 	var dataLen C.ulong = 3072
 	var data *C.uchar = (*C.uchar)(C.malloc(3072))
 	defer C.free(unsafe.Pointer(data))
@@ -181,7 +182,7 @@ func (y Slot) getCertificate() (*x509.Certificate, error) {
 	return x509.ParseCertificate(bytes.Data)
 }
 
-func (y Slot) Update(cert x509.Certificate) error {
+func (y *Slot) Update(cert x509.Certificate) error {
 	bytes := encoding.Bytes{}
 
 	bytes.Prefix.Magic = 0x70
