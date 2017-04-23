@@ -37,6 +37,11 @@ import (
 	"pault.ag/go/ykpiv/internal/pkcs1v15"
 )
 
+// Decrypt decrypts ciphertext with the private key backing the Slot we're operating
+// on.
+//
+// The `rand` argument is disregarded in favor of the on-chip RNG on the Yubikey
+// The `opts` argument is not used at this time, but may in the future.
 func (s Slot) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]byte, error) {
 	// XXX: yank the C.YKPIV_ALGO_RSA2048 out and replace it with a real check
 	// on what the slot is under the hood.
