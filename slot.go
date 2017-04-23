@@ -207,6 +207,8 @@ func (y Slot) Update(cert x509.Certificate) error {
 		return err
 	}
 
+	// Finally, invalidate our half-assed cache.
+	y.certificate = nil
 	return nil
 }
 
