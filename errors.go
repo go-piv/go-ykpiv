@@ -63,7 +63,8 @@ func (e Error) Equal(err error) bool {
 // came from, the human message, and the underlying ykpiv code, to aid with
 // debugging.
 func (e Error) Error() string {
-	return fmt.Sprintf("%s: %s (%d)", e.where, e.Message, e.Code)
+	return fmt.Sprintf("%s: %s (%d) - %s", e.where, e.Message, e.Code,
+		C.GoString(C.ykpiv_strerror(C.ykpiv_rc(e.Code))))
 }
 
 // Create a helpful mapping between 8 bit integers and the Error that it
