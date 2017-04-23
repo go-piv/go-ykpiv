@@ -77,7 +77,7 @@ func (b Bytes) Encode() []byte {
 	)
 }
 
-// Use a dynamic length header to determine the length of the bytes following.
+// Write out a dynamic length byte array denoting the size of the data.
 func lengthBytes(length int16) []byte {
 	if length < 0x80 {
 		return []byte{byte(length)}
@@ -92,6 +92,9 @@ func lengthBytes(length int16) []byte {
 	}
 }
 
+// Read a dynamic length byte array, and return a tripple of the
+// header length (prefix bytes), length of the data, and any errors
+// we hit while trying to parse the header.
 func determineLength(data []byte) (int, int16, error) {
 	if data[0] < 0x81 {
 		return 1, int16(data[0]), nil
@@ -105,6 +108,17 @@ func determineLength(data []byte) (int, int16, error) {
 	return 0, 0, fmt.Errorf("Some jacked up bytes in our header")
 }
 
+// Decode a byte stream using the encoding rules we think we understand.
+//
+// Incoming data should look like this:
+//
+// MAGIC | LENGTH | BYTES | POSTFIX
+//
+// Magic is a one byte tag. So far I've just seen 0x70.
+// Length is the dynamicly sized length header as seen in determineLength.
+// BYTES is that good good crypto we're after.
+// POSTFIX are a set of trailing bytes to tell someone what to do with this
+//         data pile we've got sitting on our front door.
 func Decode(data []byte) (*Bytes, []byte, error) {
 	headerLength, dataLength, err := determineLength(data[1:])
 	if err != nil {
