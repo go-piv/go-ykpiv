@@ -158,9 +158,13 @@ func (y Slot) Certificate() (*x509.Certificate, error) {
 
 	der := C.GoBytes(unsafe.Pointer(data), C.int(dataLen))
 
-	bytes, _, err := encoding.Decode(der)
+	bytes, rest, err := encoding.Decode(der)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("ykpiv Slot.Certificate: There appears to be trailing bytes on the Yubikey message to us.")
 	}
 
 	// If this is throwing sequence truncated and/or trailing byte errors
