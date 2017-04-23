@@ -64,6 +64,27 @@ var (
 		Certificate: C.YKPIV_OBJ_AUTHENTICATION,
 		Key:         C.YKPIV_KEY_AUTHENTICATION,
 	}
+
+	// Digital Signature, which is a certificate and key pair allows the YOU to
+	// digitally sign a document or email, providing both integrity and
+	// non-repudiation.
+	Signature SlotId = SlotId{
+		Certificate: C.YKPIV_OBJ_SIGNATURE,
+		Key:         C.YKPIV_KEY_SIGNATURE,
+	}
+
+	// Card Authentication, which is a certificate and key pair that can be
+	// used to verify that the PIV credential was issued by an authorized
+	// entity, has not expired, and has not been revoked.
+	CardAuthentication SlotId = SlotId{
+		Certificate: C.YKPIV_OBJ_CARDAUTH,
+		Key:         C.YKPIV_KEY_CARDAUTH,
+	}
+
+	KeyManagement SlotId = SlotId{
+		Certificate: C.YKPIV_OBJ_KEYMGM,
+		Key:         C.YKPIV_KEY_KEYMGM,
+	}
 )
 
 // Slot abstracts a public key, private key, and x509 Certificate stored
@@ -82,6 +103,18 @@ type Slot struct {
 // invoking `yubikey.Slot(ykpiv.Authentication)`.
 func (y Yubikey) Authentication() (*Slot, error) {
 	return y.Slot(Authentication)
+}
+
+func (y Yubikey) Signature() (*Slot, error) {
+	return y.Slot(Signature)
+}
+
+func (y Yubikey) CardAuthentication() (*Slot, error) {
+	return y.Slot(CardAuthentication)
+}
+
+func (y Yubikey) KeyManagement() (*Slot, error) {
+	return y.Slot(KeyManagement)
 }
 
 // Get a Slot off of the Yubikey by the SlotId.
