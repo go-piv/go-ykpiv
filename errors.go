@@ -66,6 +66,8 @@ func (e Error) Error() string {
 	return fmt.Sprintf("%s: %s (%d)", e.where, e.Message, e.Code)
 }
 
+// Create a helpful mapping between 8 bit integers and the Error that it
+// belongs to. This is used to look errors up at runtime later.
 func createErrorLookupMap(errs ...Error) map[int8]Error {
 	ret := map[int8]Error{}
 	for _, err := range errs {
@@ -94,6 +96,7 @@ var (
 		WrongPIN, InvalidObject, AlgorithmError, PINLockedError)
 )
 
+// Take a ykpiv_rc return code and turn it into a ykpiv.Error.
 func getError(whoops C.ykpiv_rc, name string) error {
 	if err, ok := errorLookupMap[int8(whoops)]; ok {
 		err.where = fmt.Sprintf("ykpiv ykpiv_%s", name)
