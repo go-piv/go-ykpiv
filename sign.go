@@ -60,13 +60,20 @@ var hashOIDs = map[crypto.Hash][]byte{
 // PKCS#1 1.5 defines a method to pad data passed into a signing operation
 // which is (basically) to set some bits at the lower indexes, then a bunch of
 // 0xFF, finally, a 0x00, then the data until the end of the block.
-func prepareDigestForRSA256(hash crypto.Hash, digest []byte) []byte {
-	outputLength := 256
-	padding := make([]byte, (outputLength - 3 - len(digest)))
+func prepareDigest(hash crypto.Hash, digest []byte, padLen int) []byte {
+	padding := make([]byte, (padLen - 3 - len(digest)))
 	for i := 0; i < len(padding); i++ {
 		padding[i] = 0xFF
 	}
 	return expandBytes([]byte{0x00, 0x01}, padding, []byte{0x00}, digest)
+}
+
+func prepareDigestForRSA2048(hash crypto.Hash, digest []byte) []byte {
+	return prepareDigest(hash, digest, 256)
+}
+
+func prepareDigestForRSA1024(hash crypto.Hash, digest []byte) []byte {
+	return prepareDigest(hash, digest, 128)
 }
 
 // Take some byte arrays, and return the concatenation of all of those byte
@@ -100,7 +107,7 @@ func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byt
 	}
 	digest = append(prefix, digest...)
 
-	computedDigest := prepareDigestForRSA256(hash, digest)
+	computedDigest := prepareDigestForRSA2048(hash, digest)
 
 	var cDigest = (*C.uchar)(C.CBytes(computedDigest))
 	var cDigestLen = C.size_t(len(computedDigest))
