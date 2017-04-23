@@ -46,11 +46,12 @@ func (s Slot) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]
 	//                                unsigned char algorithm, unsigned char key);
 
 	var cMessage = (*C.uchar)(C.CBytes(msg))
-	var cMessageLen = C.size_t(len(msg))
 	defer C.free(unsafe.Pointer(cMessage))
+	var cMessageLen = C.size_t(len(msg))
 
 	var cPlaintextLen = C.size_t(len(msg))
 	var cPlaintext = (*C.uchar)(C.malloc(cMessageLen))
+	defer C.free(unsafe.Pointer(cPlaintext))
 
 	if err := getError(C.ykpiv_decipher_data(
 		s.yubikey.state,

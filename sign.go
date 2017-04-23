@@ -90,12 +90,13 @@ func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byt
 
 	computedDigest := prepareDigestForRSA2048(digest)
 
-	var cDigest = (*C.uchar)(C.CBytes(computedDigest))
 	var cDigestLen = C.size_t(len(computedDigest))
+	var cDigest = (*C.uchar)(C.CBytes(computedDigest))
 	defer C.free(unsafe.Pointer(cDigest))
 
 	var cSignatureLen = C.size_t(1024)
 	var cSignature = (*C.uchar)(C.malloc(cSignatureLen))
+	defer C.free(unsafe.Pointer(cSignature))
 
 	if err := getError(C.ykpiv_sign_data(
 		s.yubikey.state,
