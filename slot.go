@@ -156,7 +156,6 @@ func (y *Slot) Certificate() (*x509.Certificate, error) {
 
 // Get the x509.Certificate stored in the PIV Slot.
 func (y *Slot) getCertificate() (*x509.Certificate, error) {
-	fmt.Printf("Cert load\n")
 	var dataLen C.ulong = 3072
 	var data *C.uchar = (*C.uchar)(C.malloc(3072))
 	defer C.free(unsafe.Pointer(data))
