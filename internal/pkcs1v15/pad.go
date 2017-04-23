@@ -7,6 +7,8 @@ import (
 // PKCS#1 1.5 defines a method to pad data passed into a signing operation
 // which is (basically) to set some bits at the lower indexes, then a bunch of
 // 0xFF, finally, a 0x00, then the data until the end of the block.
+
+// Pad a message to padLen bytes according to PKCS#1 v1.5 rules
 func Pad(message []byte, padLen int) []byte {
 	padding := make([]byte, (padLen - 3 - len(message)))
 	for i := 0; i < len(padding); i++ {
@@ -15,6 +17,7 @@ func Pad(message []byte, padLen int) []byte {
 	return expandBytes([]byte{0x00, 0x01}, padding, []byte{0x00}, message)
 }
 
+// Unpad a message according to PKCS#1 v1.5 rules
 func Unpad(message []byte) ([]byte, error) {
 	for i := 2; i < len(message); i++ {
 		if message[i] == 0x00 {
