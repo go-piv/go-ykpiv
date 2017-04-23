@@ -106,6 +106,16 @@ func (y Yubikey) Login(pin string) error {
 	return nil
 }
 
+func (y Yubikey) Authenticate(key []byte) error {
+	cKey := (*C.uchar)(C.CBytes(key))
+	defer C.free(unsafe.Pointer(cKey))
+
+	if err := getError(C.ykpiv_authenticate(y.state, cKey), "authenticate"); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Create a new Yubikey.
 //
 // This will use the options in the given `ykpiv.Options` struct to
