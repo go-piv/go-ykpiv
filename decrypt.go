@@ -38,7 +38,7 @@ import (
 )
 
 // Decrypt decrypts ciphertext with the private key backing the Slot we're operating
-// on.
+// on. This implements the crypto.Decrypter interface.
 //
 // The `rand` argument is disregarded in favor of the on-chip RNG on the Yubikey
 // The `opts` argument is not used at this time, but may in the future.
