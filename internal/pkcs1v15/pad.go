@@ -43,8 +43,11 @@ func Unpad(message []byte) ([]byte, error) {
 		if message[i] == 0x00 {
 			return message[i+1:], nil
 		}
+		if message[i] != 0xFF {
+			return nil, fmt.Errorf("ykpiv: pkcs1v15: Invalid padding byte")
+		}
 	}
-	return nil, fmt.Errorf("Input does not appear to be in PKCS#1 v 1.5 padded format")
+	return nil, fmt.Errorf("ykpiv: pkcs1v15: Input does not appear to be in PKCS#1 v 1.5 padded format")
 }
 
 // Take some byte arrays, and return the concatenation of all of those byte
