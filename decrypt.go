@@ -42,7 +42,7 @@ import (
 //
 // The `rand` argument is disregarded in favor of the on-chip RNG on the Yubikey
 // The `opts` argument is not used at this time, but may in the future.
-func (s Slot) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]byte, error) {
+func (s *Slot) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]byte, error) {
 	// XXX: yank the C.YKPIV_ALGO_RSA2048 out and replace it with a real check
 	// on what the slot is under the hood.
 
@@ -54,11 +54,16 @@ func (s Slot) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]
 	var cPlaintext = (*C.uchar)(C.malloc(cMessageLen))
 	defer C.free(unsafe.Pointer(cPlaintext))
 
+	algorithm, err := s.getAlgorithm()
+	if err != nil {
+		return nil, err
+	}
+
 	if err := getError(C.ykpiv_decipher_data(
 		s.yubikey.state,
 		cMessage, cMessageLen,
 		cPlaintext, &cPlaintextLen,
-		C.YKPIV_ALGO_RSA2048,
+		algorithm,
 		C.uchar(s.id.Key),
 	), "decipher_data"); err != nil {
 		return nil, err

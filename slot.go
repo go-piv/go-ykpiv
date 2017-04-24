@@ -32,6 +32,7 @@ import (
 	"fmt"
 
 	"crypto"
+	"crypto/rsa"
 	"crypto/x509"
 
 	"unsafe"
@@ -152,6 +153,24 @@ func (y *Slot) Certificate() (*x509.Certificate, error) {
 		y.certificate, err = y.getCertificate()
 	}
 	return y.certificate, err
+}
+
+func (y *Slot) getAlgorithm() (C.uchar, error) {
+	pubKey := y.Public()
+	switch pubKey.(type) {
+	case *rsa.PublicKey:
+		rsaPub := pubKey.(*rsa.PublicKey)
+		switch rsaPub.N.BitLen() {
+		case 1024:
+			return C.YKPIV_ALGO_RSA1024, nil
+		case 2048:
+			return C.YKPIV_ALGO_RSA2048, nil
+		default:
+			return C.uchar(0), fmt.Errorf("ykpiv: getAlgorithm: Unknown RSA Modulus size")
+		}
+	default:
+		return C.uchar(0), fmt.Errorf("ykpiv: getAlgorithm: Unknown public key algorithm")
+	}
 }
 
 // Get the x509.Certificate stored in the PIV Slot.

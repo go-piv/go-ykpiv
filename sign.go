@@ -73,10 +73,9 @@ func prepareDigestForRSA1024(digest []byte) []byte {
 // favor of the on-chip RNG.
 //
 // The output will be a PKCS#1 v1.5 signature over the digest.
-func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+func (s *Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	// XXX: yank the C.YKPIV_ALGO_RSA2048 out and replace it with a real check
 	// on what the slot is under the hood.
-
 	hash := opts.HashFunc()
 	if len(digest) != hash.Size() {
 		return nil, fmt.Errorf("ykpiv: Sign: Digest length doesn't match passed crypto algorithm")
@@ -88,7 +87,20 @@ func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byt
 	}
 	digest = append(prefix, digest...)
 
-	computedDigest := prepareDigestForRSA2048(digest)
+	algorithm, err := s.getAlgorithm()
+	if err != nil {
+		return nil, err
+	}
+
+	var computedDigest []byte
+	switch algorithm {
+	case C.YKPIV_ALGO_RSA1024:
+		computedDigest = prepareDigestForRSA1024(digest)
+	case C.YKPIV_ALGO_RSA2048:
+		computedDigest = prepareDigestForRSA2048(digest)
+	default:
+		return nil, fmt.Errorf("ykpiv: Sign: Can't preform padding for signature, unknown algorithm")
+	}
 
 	var cDigestLen = C.size_t(len(computedDigest))
 	var cDigest = (*C.uchar)(C.CBytes(computedDigest))
@@ -103,7 +115,7 @@ func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byt
 		cDigest, cDigestLen,
 		cSignature, &cSignatureLen,
 
-		C.YKPIV_ALGO_RSA2048,
+		algorithm,
 		C.uchar(s.id.Key),
 	), "sign_data"); err != nil {
 		return nil, err
