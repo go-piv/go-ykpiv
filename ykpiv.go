@@ -282,17 +282,19 @@ func (y Yubikey) Authenticate() error {
 	return getError(C.ykpiv_authenticate(y.state, cKey), "authenticate")
 }
 
-// Reset the Yubikey.
-//
-// This can only be done if both the PIN and PUK have been blocked, and will
-// wipe all data on the Key. This includes all Certificates, public and private
-// key material.
-func (y Yubikey) Reset() error {
-	template := []byte{0, C.YKPIV_INS_RESET, 0, 0}
-
+// sw, data, error
+func (y Yubikey) transferData(
+	template []byte,
+	input []byte,
+	maxReturnSize int,
+) (int, []byte, error) {
 	sw := C.int(0)
 
-	cDataLen := C.ulong(255)
+	cInputLen := C.long(len(input))
+	cInput := (*C.uchar)(C.CBytes(input))
+	defer C.free(unsafe.Pointer(cInput))
+
+	cDataLen := C.ulong(maxReturnSize)
 	cData := (*C.uchar)(C.malloc(C.size_t(cDataLen)))
 	defer C.free(unsafe.Pointer(cData))
 
@@ -302,11 +304,25 @@ func (y Yubikey) Reset() error {
 	if err := getError(C.ykpiv_transfer_data(
 		y.state,
 		cTemplate,
-		nil,
-		0,
+		cInput, cInputLen,
 		cData, &cDataLen,
 		&sw,
 	), "transfer_data"); err != nil {
+		return 0, nil, err
+	}
+
+	return int(sw), C.GoBytes(unsafe.Pointer(cData), C.int(cDataLen)), nil
+}
+
+// Reset the Yubikey.
+//
+// This can only be done if both the PIN and PUK have been blocked, and will
+// wipe all data on the Key. This includes all Certificates, public and private
+// key material.
+func (y Yubikey) Reset() error {
+	template := []byte{0, C.YKPIV_INS_RESET, 0, 0}
+	sw, _, err := y.transferData(template, nil, 128)
+	if err != nil {
 		return err
 	}
 

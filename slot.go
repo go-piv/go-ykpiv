@@ -99,7 +99,8 @@ var (
 type Slot struct {
 	yubikey     Yubikey
 	Id          SlotId
-	Certificate x509.Certificate
+	PublicKey   crypto.PublicKey
+	Certificate *x509.Certificate
 }
 
 // Get the PIV Authentication Slot off the Yubikey. This is identical to
@@ -134,18 +135,23 @@ func (y Yubikey) Slot(id SlotId) (*Slot, error) {
 	/* Right, let's see what we can do here */
 	slot := Slot{yubikey: y, Id: id}
 
-	certificate, err := slot.GetCertificate()
-	if err != nil {
-		return nil, err
+	certificate, _ := slot.GetCertificate()
+	// We're going to ignore the errors here, since we don't actually
+	// know the difference between a totally effed key and a Certificate
+	// not existing.
+
+	slot.Certificate = certificate
+	if certificate != nil {
+		slot.PublicKey = certificate.PublicKey
 	}
-	slot.Certificate = *certificate
+
 	return &slot, nil
 }
 
 // Return the crypto.PublicKey that we know corresponds to the Certificate
 // we have on hand.
 func (s Slot) Public() crypto.PublicKey {
-	return s.Certificate.PublicKey
+	return s.PublicKey
 }
 
 // Get the Yubikey C.YKPIV_ALGO_* uchar for the key material backing the
@@ -217,7 +223,7 @@ func (y *Slot) Update(cert x509.Certificate) error {
 		return err
 	}
 
-	y.Certificate = cert
+	y.Certificate = &cert
 	return nil
 }
 

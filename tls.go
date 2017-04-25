@@ -30,7 +30,7 @@ func (slot Slot) TLSCertificate() tls.Certificate {
 	return tls.Certificate{
 		Certificate: [][]byte{slot.Certificate.Raw},
 		PrivateKey:  slot,
-		Leaf:        &slot.Certificate,
+		Leaf:        slot.Certificate,
 	}
 }
 

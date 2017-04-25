@@ -65,7 +65,7 @@ var hashOIDs = map[crypto.Hash][]byte{
 // favor of the on-chip RNG.
 //
 // The output will be a PKCS#1 v1.5 signature over the digest.
-func (s Slot) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+func (s Slot) Sign(_ io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	hash := opts.HashFunc()
 	if len(digest) != hash.Size() {
 		return nil, fmt.Errorf("ykpiv: Sign: Digest length doesn't match passed crypto algorithm")
