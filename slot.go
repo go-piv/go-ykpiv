@@ -108,14 +108,20 @@ func (y Yubikey) Authentication() (*Slot, error) {
 	return y.Slot(Authentication)
 }
 
+// Get the Digital Signature Slot off the Yubikey. This is identical to
+// invoking `yubikey.Slot(ykpiv.Signature)`
 func (y Yubikey) Signature() (*Slot, error) {
 	return y.Slot(Signature)
 }
 
+// Get the PIV Card Authentication Slot off the Yubikey. This is identical to
+// invoking `yubikey.Slot(ykpiv.CardAuthentication)`
 func (y Yubikey) CardAuthentication() (*Slot, error) {
 	return y.Slot(CardAuthentication)
 }
 
+// Get the PIV Key Management Slot off the Yubikey. This is identical to
+// invoking `yubikey.Slot(ykpiv.KeyManagement)`
 func (y Yubikey) KeyManagement() (*Slot, error) {
 	return y.Slot(KeyManagement)
 }
@@ -147,6 +153,10 @@ func (s *Slot) Id() SlotId {
 	return s.id
 }
 
+// Get the Certificate out of the Slot
+//
+// Because high amounts of i/o causes the Yubikey to act funny,
+// this will get the Certificate from the Cache.
 func (y *Slot) Certificate() (*x509.Certificate, error) {
 	var err error
 	if y.certificate == nil {
@@ -155,6 +165,8 @@ func (y *Slot) Certificate() (*x509.Certificate, error) {
 	return y.certificate, err
 }
 
+// Get the Yubikey C.YKPIV_ALGO_* uchar for the key material backing the
+// slot.
 func (y *Slot) getAlgorithm() (C.uchar, error) {
 	pubKey := y.Public()
 	switch pubKey.(type) {
@@ -173,7 +185,7 @@ func (y *Slot) getAlgorithm() (C.uchar, error) {
 	}
 }
 
-// Get the x509.Certificate stored in the PIV Slot.
+// Get the x509.Certificate stored in the PIV Slot off the chip
 func (y *Slot) getCertificate() (*x509.Certificate, error) {
 	var dataLen C.ulong = 3072
 	var data *C.uchar = (*C.uchar)(C.malloc(3072))
