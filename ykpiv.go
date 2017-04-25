@@ -269,7 +269,11 @@ func (y Yubikey) Authenticate() error {
 	return getError(C.ykpiv_authenticate(y.state, cKey), "authenticate")
 }
 
+// Reset the Yubikey.
 //
+// This can only be done if both the PIN and PUK have been blocked, and will
+// wipe all data on the Key. This includes all Certificates, public and private
+// key material.
 func (y Yubikey) Reset() error {
 	template := []byte{0, C.YKPIV_INS_RESET, 0, 0}
 
