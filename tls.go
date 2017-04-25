@@ -26,17 +26,12 @@ import (
 
 // Create a tls.Certificate fit for use in crypto/tls applications,
 // such as net/http, or grpc.
-func (slot Slot) TLSCertificate() (*tls.Certificate, error) {
-	cert, err := slot.Certificate()
-	if err != nil {
-		return nil, err
-	}
-	tlsCertificate := tls.Certificate{
-		Certificate: [][]byte{cert.Raw},
+func (slot Slot) TLSCertificate() tls.Certificate {
+	return tls.Certificate{
+		Certificate: [][]byte{slot.Certificate.Raw},
 		PrivateKey:  slot,
-		Leaf:        cert,
+		Leaf:        &slot.Certificate,
 	}
-	return &tlsCertificate, nil
 }
 
 // vim: foldmethod=marker

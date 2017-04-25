@@ -98,8 +98,8 @@ var (
 // other bits and bobs of state.
 type Slot struct {
 	yubikey     Yubikey
-	id          SlotId
-	certificate *x509.Certificate
+	Id          SlotId
+	Certificate x509.Certificate
 }
 
 // Get the PIV Authentication Slot off the Yubikey. This is identical to
@@ -132,42 +132,25 @@ func (y Yubikey) KeyManagement() (*Slot, error) {
 // for this slot. Only slots with an x509 Certificate can be used.
 func (y Yubikey) Slot(id SlotId) (*Slot, error) {
 	/* Right, let's see what we can do here */
-	slot := Slot{yubikey: y, id: id}
+	slot := Slot{yubikey: y, Id: id}
 
-	certificate, err := slot.Certificate()
+	certificate, err := slot.GetCertificate()
 	if err != nil {
 		return nil, err
 	}
-	slot.certificate = certificate
+	slot.Certificate = *certificate
 	return &slot, nil
 }
 
 // Return the crypto.PublicKey that we know corresponds to the Certificate
 // we have on hand.
-func (s *Slot) Public() crypto.PublicKey {
-	return s.certificate.PublicKey
-}
-
-// Get the SlotId for the current Slot
-func (s *Slot) Id() SlotId {
-	return s.id
-}
-
-// Get the Certificate out of the Slot
-//
-// Because high amounts of i/o causes the Yubikey to act funny,
-// this will get the Certificate from the Cache.
-func (y *Slot) Certificate() (*x509.Certificate, error) {
-	var err error
-	if y.certificate == nil {
-		y.certificate, err = y.getCertificate()
-	}
-	return y.certificate, err
+func (s Slot) Public() crypto.PublicKey {
+	return s.Certificate.PublicKey
 }
 
 // Get the Yubikey C.YKPIV_ALGO_* uchar for the key material backing the
 // slot.
-func (y *Slot) getAlgorithm() (C.uchar, error) {
+func (y Slot) getAlgorithm() (C.uchar, error) {
 	pubKey := y.Public()
 	switch pubKey.(type) {
 	case *rsa.PublicKey:
@@ -186,16 +169,11 @@ func (y *Slot) getAlgorithm() (C.uchar, error) {
 }
 
 // Get the x509.Certificate stored in the PIV Slot off the chip
-func (y *Slot) getCertificate() (*x509.Certificate, error) {
-	var dataLen C.ulong = 3072
-	var data *C.uchar = (*C.uchar)(C.malloc(3072))
-	defer C.free(unsafe.Pointer(data))
-
-	if err := getError(C.ykpiv_fetch_object(y.yubikey.state, C.int(y.id.Certificate), data, &dataLen), "fetch_object"); err != nil {
+func (y Slot) GetCertificate() (*x509.Certificate, error) {
+	der, err := y.yubikey.getObject(int(y.Id.Certificate))
+	if err != nil {
 		return nil, err
 	}
-
-	der := C.GoBytes(unsafe.Pointer(data), C.int(dataLen))
 
 	bytes, rest, err := encoding.Decode(der)
 	if err != nil {
@@ -233,14 +211,13 @@ func (y *Slot) Update(cert x509.Certificate) error {
 
 	if err := getError(C.ykpiv_save_object(
 		y.yubikey.state,
-		C.int(y.id.Certificate),
+		C.int(y.Id.Certificate),
 		cDigitalTerroristPoison, cDigitalTerroristPoisonLen,
 	), "save_object"); err != nil {
 		return err
 	}
 
-	// Finally, invalidate our half-assed cache.
-	y.certificate = nil
+	y.Certificate = cert
 	return nil
 }
 
