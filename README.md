@@ -35,6 +35,7 @@ Debian
 
 ```
 sudo apt install build-essential libykpiv-dev
+go get pault.ag/go/ykpiv
 ```
 
 Examples
