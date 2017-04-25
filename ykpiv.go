@@ -106,6 +106,28 @@ func (y Yubikey) Login(pin string) error {
 	return nil
 }
 
+func (y Yubikey) ChangePIN(oldPin, newPin string) error {
+	tries := C.int(0)
+
+	cOldPin := (*C.char)(C.CString(oldPin))
+	cOldPinLen := C.size_t(len(oldPin))
+	defer C.free(unsafe.Pointer(cOldPin))
+
+	cNewPin := (*C.char)(C.CString(newPin))
+	cNewPinLen := C.size_t(len(newPin))
+	defer C.free(unsafe.Pointer(cNewPin))
+
+	if err := getError(C.ykpiv_change_pin(
+		y.state,
+		cOldPin, cOldPinLen,
+		cNewPin, cNewPinLen,
+		&tries,
+	), "change_pin"); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (y Yubikey) Authenticate(key []byte) error {
 	cKey := (*C.uchar)(C.CBytes(key))
 	defer C.free(unsafe.Pointer(cKey))

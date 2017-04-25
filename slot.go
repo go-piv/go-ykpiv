@@ -212,6 +212,7 @@ func (y *Slot) getCertificate() (*x509.Certificate, error) {
 	return x509.ParseCertificate(bytes.Data)
 }
 
+// Write the x509 Certificate to the Yubikey.
 func (y *Slot) Update(cert x509.Certificate) error {
 	bytes := encoding.Bytes{}
 
