@@ -29,7 +29,7 @@ package ykpiv
 import "C"
 
 import (
-	"fmt"
+	"bytes"
 	"unsafe"
 )
 
@@ -132,18 +132,50 @@ func New(opts Options) (*Yubikey, error) {
 		verbosity = 1
 	}
 
-	if C.ykpiv_init(&yubikey.state, C.int(verbosity)) != C.YKPIV_OK {
-		return nil, fmt.Errorf("ykpiv: ykpiv_init Failed to connect to reader.")
+	if err := getError(C.ykpiv_init(&yubikey.state, C.int(verbosity)), "init"); err != nil {
+		return nil, err
 	}
 
 	something := C.CString(opts.Reader)
 	defer C.free(unsafe.Pointer(something))
 
-	if C.ykpiv_connect(yubikey.state, something) != C.YKPIV_OK {
-		return nil, fmt.Errorf("ykpiv: ykpiv_connect Failed to connect to reader.")
+	if err := getError(C.ykpiv_connect(yubikey.state, something), "connect"); err != nil {
+		return nil, err
 	}
 
 	return &yubikey, nil
+}
+
+func List() ([]string, error) {
+	state := &C.ykpiv_state{}
+
+	if err := getError(C.ykpiv_init(&state, C.int(0)), "init"); err != nil {
+		return nil, err
+	}
+
+	var cReadersLen = C.size_t(2048)
+	var cReaders *C.char = (*C.char)(C.malloc(cReadersLen))
+	defer C.free(unsafe.Pointer(cReaders))
+
+	if err := getError(C.ykpiv_list_readers(state, cReaders, &cReadersLen), "list_readers"); err != nil {
+		return nil, err
+	}
+
+	readerBytes := C.GoBytes(unsafe.Pointer(cReaders), C.int(cReadersLen))
+	readers := []string{}
+
+	for _, reader := range bytes.Split(readerBytes, []byte{0x00}) {
+		if len(reader) == 0 {
+			continue
+		}
+		readers = append(readers, string(reader))
+	}
+
+	if err := getError(C.ykpiv_done(state), "done"); err != nil {
+		return nil, err
+	}
+
+	return readers, nil
 }
 
 // vim: foldmethod=marker
