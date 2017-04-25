@@ -66,6 +66,17 @@ type Options struct {
 	ManagementKeyIsPIN bool
 }
 
+// Get the Management Key.
+//
+// On some configurations, users have set the Management Key to a PBKDF2
+// SHA1 key derived from the PIN, so this may return one of two things:
+//
+// If `ManagementKeyIsPIN` is false, the `ManagementKey` byte array
+// will be returned.
+//
+// If `ManagementKeyIsPIN` is true, the `PIN` will be used, in conjunction
+// with a salt held within the PIVMON object address to compute the
+// ManagementKey. If PIN is nil, this will result in an error being returned.
 func (o Options) GetManagementKey(y Yubikey) ([]byte, error) {
 	key := o.ManagementKey
 	if o.ManagementKeyIsPIN {
@@ -81,6 +92,7 @@ func (o Options) GetManagementKey(y Yubikey) ([]byte, error) {
 	return key, nil
 }
 
+// Get the user defined PUK. This will return an error if PUK is nil.
 func (o Options) GetPUK() (string, error) {
 	if o.PUK == nil {
 		return "", fmt.Errorf("ykpiv: GetPUK: No PUK set in Options")
@@ -88,6 +100,7 @@ func (o Options) GetPUK() (string, error) {
 	return *(o.PUK), nil
 }
 
+// Get the user defined PIN. This will return an error if PUK is nil.
 func (o Options) GetPIN() (string, error) {
 	if o.PIN == nil {
 		return "", fmt.Errorf("ykpiv: GetPIN: No PIN set in Options")
