@@ -269,6 +269,37 @@ func (y Yubikey) Authenticate() error {
 	return getError(C.ykpiv_authenticate(y.state, cKey), "authenticate")
 }
 
+//
+func (y Yubikey) Reset() error {
+	template := []byte{0, C.YKPIV_INS_RESET, 0, 0}
+
+	sw := C.int(0)
+
+	cDataLen := C.ulong(255)
+	cData := (*C.uchar)(C.malloc(C.size_t(cDataLen)))
+	defer C.free(unsafe.Pointer(cData))
+
+	cTemplate := (*C.uchar)(C.CBytes(template))
+	defer C.free(unsafe.Pointer(cTemplate))
+
+	if err := getError(C.ykpiv_transfer_data(
+		y.state,
+		cTemplate,
+		nil,
+		0,
+		cData, &cDataLen,
+		&sw,
+	), "transfer_data"); err != nil {
+		return err
+	}
+
+	if sw != C.SW_SUCCESS {
+		return fmt.Errorf("ykpiv: Reset: Failed to reset - are both the PIN and PUK blocked?")
+	}
+
+	return nil
+}
+
 // Create a new Yubikey.
 //
 // This will use the options in the given `ykpiv.Options` struct to
