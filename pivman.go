@@ -88,12 +88,6 @@ func (y Yubikey) deriveManagementKey() ([]byte, error) {
 	return pbkdf2.Key([]byte(pin), salt, 10000, 24, crypto.SHA1.New), nil
 }
 
-// Take a wild guess if this Token is, in fact, a pivman managed token.
-func (y Yubikey) isPIVMANManaged() bool {
-	_, err := y.getPIVMANAttributes()
-	return err == nil
-}
-
 // Return a mapping of pivmanTags -> byte arrays. The exact semantics
 // of this byte array is defined entirely by the tag, and should be treated
 // as semantically opaque to the user, unless specific parsing code is in place.
