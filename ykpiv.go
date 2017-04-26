@@ -20,8 +20,11 @@
 
 package ykpiv
 
+// XXX: -Wl,--allow-multiple-definition is needed because the test suite fails
+//      when I build it. For now this will keep it quiet :\
+
 /*
-#cgo LDFLAGS: -lykpiv
+#cgo LDFLAGS: -lykpiv -Wl,--allow-multiple-definition
 #cgo CFLAGS: -I/usr/include/ykpiv/
 #include <ykpiv.h>
 #include <stdlib.h>
