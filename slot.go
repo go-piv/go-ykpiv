@@ -30,14 +30,15 @@ import "C"
 
 import (
 	"fmt"
+	"unsafe"
+
+	"encoding/asn1"
 
 	"crypto"
 	"crypto/rsa"
 	"crypto/x509"
 
-	"unsafe"
-
-	"pault.ag/go/ykpiv/internal/encoding"
+	"pault.ag/go/ykpiv/internal/bytearray"
 )
 
 // SlotId encapsulates the Identifiers required to preform key operations
@@ -175,40 +176,36 @@ func (y Slot) getAlgorithm() (C.uchar, error) {
 
 // Get the x509.Certificate stored in the PIV Slot off the chip
 func (y Slot) GetCertificate() (*x509.Certificate, error) {
-	der, err := y.yubikey.getObject(int(y.Id.Certificate))
+	bytes, err := y.yubikey.getObject(int(y.Id.Certificate))
 	if err != nil {
 		return nil, err
 	}
 
-	bytes, rest, err := encoding.Decode(der)
+	objects, err := bytearray.Decode(bytes)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(rest) != 0 {
-		return nil, fmt.Errorf("ykpiv Slot.Certificate: There appears to be trailing bytes on the Yubikey message to us.")
+	if len(objects) != 3 {
+		return nil, fmt.Errorf("ykpiv: GetCertificate: We expected two der byte arrays from the key")
 	}
 
 	// If this is throwing sequence truncated and/or trailing byte errors
 	// the first thing to double check is the byte mangling above, and
 	// if the comment above applies to this.
-	return x509.ParseCertificate(bytes.Data)
+	return x509.ParseCertificate(objects[0].Bytes)
 }
 
 // Write the x509 Certificate to the Yubikey.
 func (y *Slot) Update(cert x509.Certificate) error {
-	bytes := encoding.Bytes{}
-
-	bytes.Prefix.Magic = 0x70
-
-	bytes.Data = cert.Raw
-
-	bytes.Postfix.Magic = 0x71
-	bytes.Postfix.MoreMagic = 1
-	bytes.Postfix.Compress = 0
-	bytes.Postfix.LRC = 0xFE
-
-	digitalTerroristPoison := bytes.Encode()
+	digitalTerroristPoison, err := bytearray.Encode([]asn1.RawValue{
+		asn1.RawValue{Tag: 0x10, IsCompound: true, Class: 0x01, Bytes: cert.Raw},
+		asn1.RawValue{Tag: 0x11, IsCompound: true, Class: 0x01, Bytes: []byte{0x00}},
+		asn1.RawValue{Tag: 0x1E, IsCompound: true, Class: 0x03, Bytes: []byte{}},
+	})
+	if err != nil {
+		return err
+	}
 
 	cDigitalTerroristPoison := (*C.uchar)(C.CBytes(digitalTerroristPoison))
 	cDigitalTerroristPoisonLen := C.size_t(len(digitalTerroristPoison))

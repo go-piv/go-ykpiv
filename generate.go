@@ -44,7 +44,7 @@ var (
 )
 
 func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
-	byteArray, err := bytearray.Decode(der)
+	byteArray, err := bytearray.DERDecode(der)
 	if err != nil {
 		return nil, err
 	}

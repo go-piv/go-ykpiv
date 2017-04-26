@@ -100,7 +100,7 @@ func (y Yubikey) getPIVMANAttributes() (map[int][]byte, error) {
 		return nil, err
 	}
 
-	byteArray, err := bytearray.Decode(bytes)
+	byteArray, err := bytearray.DERDecode(bytes)
 	if err != nil {
 		return nil, err
 	}
