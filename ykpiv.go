@@ -165,6 +165,24 @@ func (y Yubikey) Version() ([]byte, error) {
 	return C.GoBytes(unsafe.Pointer(cVersion), C.int(cVersionLen)), nil
 }
 
+func (y Yubikey) verify(cPin *C.char) (int, error) {
+	tries := C.int(0)
+	err := getError(C.ykpiv_verify(y.state, cPin, &tries), "verify")
+
+	if cPin == nil && WrongPIN.Equal(err) {
+		return int(tries), nil
+	}
+	if err != nil {
+		return -1, err
+	}
+	return int(tries), nil
+}
+
+// PIN Retries
+func (y Yubikey) PINRetries() (int, error) {
+	return y.verify(nil)
+}
+
 // Log into the Yubikey using the user PIN.
 func (y Yubikey) Login() error {
 	pin, err := y.options.GetPIN()
@@ -172,10 +190,10 @@ func (y Yubikey) Login() error {
 		return err
 	}
 
-	tries := C.int(0)
 	cPin := (*C.char)(C.CString(pin))
 	defer C.free(unsafe.Pointer(cPin))
-	return getError(C.ykpiv_verify(y.state, cPin, &tries), "verify")
+	_, err = y.verify(cPin)
+	return err
 }
 
 // Using the PUK, unblock the PIN, resetting the retry counter.

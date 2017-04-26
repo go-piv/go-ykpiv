@@ -48,13 +48,14 @@ import (
 type SlotId struct {
 	Certificate int32
 	Key         int32
+	Name        string
 }
 
 // Return a human readable string mostly useful for debugging which Slot you
 // might have your hands on. Since most people (for some value of "most")
 // would want the Key, this only includes that.
 func (s SlotId) String() string {
-	return fmt.Sprintf("Slot key=%x", s.Key)
+	return fmt.Sprintf("%s (%x)", s.Name, s.Key)
 }
 
 // More information regarding the basic PIV slots can be founnd at the
@@ -67,6 +68,7 @@ var (
 	Authentication SlotId = SlotId{
 		Certificate: C.YKPIV_OBJ_AUTHENTICATION,
 		Key:         C.YKPIV_KEY_AUTHENTICATION,
+		Name:        "Authentication",
 	}
 
 	// Digital Signature, which is a certificate and key pair allows the YOU to
@@ -75,6 +77,7 @@ var (
 	Signature SlotId = SlotId{
 		Certificate: C.YKPIV_OBJ_SIGNATURE,
 		Key:         C.YKPIV_KEY_SIGNATURE,
+		Name:        "Digital Signature",
 	}
 
 	// Card Authentication, which is a certificate and key pair that can be
@@ -83,11 +86,13 @@ var (
 	CardAuthentication SlotId = SlotId{
 		Certificate: C.YKPIV_OBJ_CARD_AUTH,
 		Key:         C.YKPIV_KEY_CARDAUTH,
+		Name:        "Card Authentication",
 	}
 
 	KeyManagement SlotId = SlotId{
 		Certificate: C.YKPIV_OBJ_KEY_MANAGEMENT,
 		Key:         C.YKPIV_KEY_KEYMGM,
+		Name:        "Key Management",
 	}
 )
 
