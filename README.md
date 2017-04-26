@@ -27,6 +27,22 @@ Signing and Decryption through that interface. However, some management function
 are not exposed in the PKCS#11 OpenSC interface, so this library may be of use
 when one wants to write a new Certificate, or set PINs.
 
+Development
+===========
+
+Testing
+-------
+
+To run the tests, you'll need to find a Yubikey that you're willing to wipe
+clean, and destroy all data on it. After you've found such a key, remove all
+other Yubikeys from your machine.
+
+The tests will panic if the `YKPIV_YES_DESTROY_MY_KEY` environment variable
+is unset.
+
+Running the tests will **reset** your Yubikey a few times (once per test), and
+you will wind up with a key with the default PIN, PUK and Management Key.
+
 Installation
 ============
 
