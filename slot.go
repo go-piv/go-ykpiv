@@ -157,7 +157,8 @@ func (s Slot) Public() crypto.PublicKey {
 // Get the Yubikey C.YKPIV_ALGO_* uchar for the key material backing the
 // slot.
 func (y Slot) getAlgorithm() (C.uchar, error) {
-	pubKey := y.Public()
+	pubKey := y.PublicKey
+
 	switch pubKey.(type) {
 	case *rsa.PublicKey:
 		rsaPub := pubKey.(*rsa.PublicKey)
