@@ -40,9 +40,11 @@ import (
 )
 
 var (
+	// Tell the Yubikey to generate an asymetric key (like RSA or RCC)
 	ykpivInsGenerateAsymetric byte = 0x47
 )
 
+// Decode a DER encoded list of byte arrays into an rsa.PublicKey.
 func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
 	byteArray, err := bytearray.DERDecode(der)
 	if err != nil {
@@ -75,6 +77,10 @@ func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
 	return &pubKey, nil
 }
 
+// Generate an RSA Keypair in slot `id` (using a modulus size of `bits`),
+// and construct a Certificate-less Slot. This Slot can not be recovered
+// later, so it should be used to sign a CSR or Self-Signed Certificate
+// before we lose the key material.
 func (y Yubikey) GenerateRSASlot(id SlotId, bits int) (*Slot, error) {
 	pubKey, err := y.generateRSA(id, bits)
 	if err != nil {
@@ -85,7 +91,9 @@ func (y Yubikey) GenerateRSASlot(id SlotId, bits int) (*Slot, error) {
 
 }
 
-// This ketamine fueled nightmare
+// Generate an RSA public key on the Yubikey, parse the output and return
+// a crypto.PublicKey. This will create the key in slot `slot`, with a
+// modulus size of `bits`.
 func (y Yubikey) generateRSA(slot SlotId, bits int) (crypto.PublicKey, error) {
 	var algorithm byte
 	switch bits {
@@ -105,13 +113,17 @@ func (y Yubikey) generateRSA(slot SlotId, bits int) (crypto.PublicKey, error) {
 	return decodeYubikeyRSAPublicKey(der)
 }
 
+// This is a low-level binding into the underlying instruction to actually
+// generate a new asymetric key on the Yubikey. This will create a key of
+// type `algorithm` (something like C.YKPIV_ALGO_RSA2048) in slot `slot`.
+//
+// This will return the raw bytes from the actual Yubikey itself back to
+// the caller to appropriately parse the output. In the case of RSA keys,
+// this is a DER encoded series of DER encoded byte arrays for N and E.
 func (y Yubikey) generateKey(slot SlotId, algorithm byte) ([]byte, error) {
 	sw, data, err := y.transferData(
 		[]byte{0x00, ykpivInsGenerateAsymetric, 0x00, byte(slot.Key)},
-		[]byte{
-			0xAC, 3,
-			C.YKPIV_ALGO_TAG, 1, algorithm,
-		},
+		[]byte{0xAC, 3, C.YKPIV_ALGO_TAG, 1, algorithm},
 		1024,
 	)
 	if err != nil {
