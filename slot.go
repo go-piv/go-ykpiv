@@ -135,15 +135,13 @@ func (y Yubikey) Slot(id SlotId) (*Slot, error) {
 	/* Right, let's see what we can do here */
 	slot := Slot{yubikey: y, Id: id}
 
-	certificate, _ := slot.GetCertificate()
-	// We're going to ignore the errors here, since we don't actually
-	// know the difference between a totally effed key and a Certificate
-	// not existing.
+	certificate, err := slot.GetCertificate()
+	if err != nil {
+		return nil, err
+	}
 
 	slot.Certificate = certificate
-	if certificate != nil {
-		slot.PublicKey = certificate.PublicKey
-	}
+	slot.PublicKey = certificate.PublicKey
 
 	return &slot, nil
 }

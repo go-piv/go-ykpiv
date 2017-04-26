@@ -31,11 +31,12 @@ import "C"
 import (
 	"fmt"
 
-	"encoding/asn1"
 	"math/big"
 
 	"crypto"
 	"crypto/rsa"
+
+	"pault.ag/go/ykpiv/internal/bytearray"
 )
 
 var (
@@ -43,40 +44,26 @@ var (
 )
 
 func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
-	data := asn1.RawValue{}
-	rest, err := asn1.Unmarshal(der, &data)
+	byteArray, err := bytearray.Decode(der)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(rest) != 0 {
-		return nil, fmt.Errorf("ykpiv: GenerateRSA: der has trailing bytes")
+	if len(byteArray) != 2 {
+		return nil, fmt.Errorf("ykpiv: decodeYubikeyRSAPublicKey: Byte Array isn't length 2")
 	}
 
-	der = data.Bytes
-
-	n := asn1.RawValue{}
-	rest, err = asn1.Unmarshal(der, &n)
-	if err != nil {
-		return nil, err
-	}
+	n := byteArray[0]
 	if n.Tag != 1 {
-		return nil, fmt.Errorf("ykpiv: GenerateRSA: I'm confused about n: %x", n.Tag)
-	}
-	e := asn1.RawValue{}
-	rest, err = asn1.Unmarshal(rest, &e)
-	if err != nil {
-		return nil, err
-	}
-	if e.Tag != 2 {
-		return nil, fmt.Errorf("ykpiv: GenerateRSA: I'm confused about e: %x", e.Tag)
-	}
-	if len(rest) != 0 {
-		return nil, fmt.Errorf("ykpiv: GenerateRSA: bad pubkey der")
+		return nil, fmt.Errorf("ykpiv: decodeYubikeyRSAPublicKey: I'm confused about n: %x", n.Tag)
 	}
 	pubN := big.NewInt(0)
 	pubN.SetBytes(n.Bytes)
 
+	e := byteArray[1]
+	if e.Tag != 2 {
+		return nil, fmt.Errorf("ykpiv: decodeYubikeyRSAPublicKey: I'm confused about e: %x", e.Tag)
+	}
 	pubE := big.NewInt(0)
 	pubE.SetBytes(e.Bytes)
 

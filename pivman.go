@@ -30,9 +30,10 @@ import "C"
 
 import (
 	"crypto"
-	"encoding/asn1"
 
 	"golang.org/x/crypto/pbkdf2"
+
+	"pault.ag/go/ykpiv/internal/bytearray"
 )
 
 var (
@@ -99,30 +100,15 @@ func (y Yubikey) getPIVMANAttributes() (map[int][]byte, error) {
 		return nil, err
 	}
 
-	/* What we've got here is an DER encoded byte array, which holds
-	 * DER encoded byte arrays. */
-	rawData := asn1.RawValue{}
-	if _, err := asn1.Unmarshal(bytes, &rawData); err != nil {
+	byteArray, err := bytearray.Decode(bytes)
+	if err != nil {
 		return nil, err
 	}
 
-	// So, now that we have the byte array, let's break it apart.
-	bytes = rawData.Bytes
-	for {
-		/* When we asn1.Unmarshal, the "rest", is just the next chunk
-		 * of the byte array, basically. So, let's continue until we've
-		 * hit the end of the array */
-		rawData := asn1.RawValue{}
-		rest, err := asn1.Unmarshal(bytes, &rawData)
-		if err != nil {
-			return nil, err
-		}
-		attributes[rawData.Tag] = rawData.Bytes
-		if len(rest) == 0 {
-			break
-		}
-		bytes = rest
+	for _, rawValue := range byteArray {
+		attributes[rawValue.Tag] = rawValue.Bytes
 	}
+
 	return attributes, nil
 }
 
