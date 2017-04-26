@@ -81,8 +81,8 @@ func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
 // and construct a Certificate-less Slot. This Slot can not be recovered
 // later, so it should be used to sign a CSR or Self-Signed Certificate
 // before we lose the key material.
-func (y Yubikey) GenerateRSASlot(id SlotId, bits int) (*Slot, error) {
-	pubKey, err := y.generateRSA(id, bits)
+func (y Yubikey) GenerateRSA(id SlotId, bits int) (*Slot, error) {
+	pubKey, err := y.generateRSAKey(id, bits)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func (y Yubikey) GenerateRSASlot(id SlotId, bits int) (*Slot, error) {
 // Generate an RSA public key on the Yubikey, parse the output and return
 // a crypto.PublicKey. This will create the key in slot `slot`, with a
 // modulus size of `bits`.
-func (y Yubikey) generateRSA(slot SlotId, bits int) (crypto.PublicKey, error) {
+func (y Yubikey) generateRSAKey(slot SlotId, bits int) (crypto.PublicKey, error) {
 	var algorithm byte
 	switch bits {
 	case 1024:
@@ -130,18 +130,9 @@ func (y Yubikey) generateKey(slot SlotId, algorithm byte) ([]byte, error) {
 		return nil, err
 	}
 
-	switch sw {
-	case C.SW_SUCCESS:
-		// lookin good
-	case C.SW_ERR_SECURITY_STATUS:
-		return nil, fmt.Errorf("ykpiv: GenerateKey: Security Status Error")
-	case C.SW_ERR_AUTH_BLOCKED:
-		return nil, fmt.Errorf("ykpiv: GenerateKey: Auth Blocked")
-	case C.SW_ERR_INCORRECT_PARAM:
-		return nil, fmt.Errorf("ykpiv: GenerateKey: Incorrect Param")
-	case C.SW_ERR_INCORRECT_SLOT:
-		return nil, fmt.Errorf("ykpiv: GenerateKey: Incorrect Slot")
-	default:
+	err = getSWError(sw, "transfer_data")
+	if err != nil {
+		return nil, err
 	}
 
 	return data, nil

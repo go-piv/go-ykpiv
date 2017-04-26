@@ -36,10 +36,10 @@ import (
 // context around them, as well as implement the Error interface.
 type Error struct {
 
-	// int8 representing the underlying error code as ykpiv had given us. The
+	// int representing the underlying error code as ykpiv had given us. The
 	// exact numbers can be found in your local ykpiv.h, inside the ykpiv_rc
 	// enum.
-	Code int8
+	Code int
 
 	// Human readable message regarding what happened.
 	Message string
@@ -69,8 +69,8 @@ func (e Error) Error() string {
 
 // Create a helpful mapping between 8 bit integers and the Error that it
 // belongs to. This is used to look errors up at runtime later.
-func createErrorLookupMap(errs ...Error) map[int8]Error {
-	ret := map[int8]Error{}
+func createErrorLookupMap(errs ...Error) map[int]Error {
+	ret := map[int]Error{}
 	for _, err := range errs {
 		ret[err.Code] = err
 	}
@@ -92,15 +92,32 @@ var (
 	AlgorithmError      = Error{Code: C.YKPIV_ALGORITHM_ERROR, Message: "Algorithm Error"}
 	PINLockedError      = Error{Code: C.YKPIV_PIN_LOCKED, Message: "PIN Locked"}
 
+	SecurityStatusError = Error{Code: C.SW_ERR_SECURITY_STATUS, Message: "Security Status Error"}
+	AuthBlocked         = Error{Code: C.SW_ERR_AUTH_BLOCKED, Message: "Auth Blocked"}
+	IncorrectParam      = Error{Code: C.SW_ERR_INCORRECT_PARAM, Message: "Incorrect Param"}
+	IncorrectSlot       = Error{Code: C.SW_ERR_INCORRECT_SLOT, Message: "Incorrect Slot"}
+
 	errorLookupMap = createErrorLookupMap(MemeoryError, PCSCError, SizeError, AppletError,
 		AuthenticationError, RandomnessError, GenericError, KeyError, ParseError,
 		WrongPIN, InvalidObject, AlgorithmError, PINLockedError)
+
+	swErrorLookupMap = createErrorLookupMap(SecurityStatusError, AuthBlocked,
+		IncorrectParam, IncorrectSlot)
 )
 
 // Take a ykpiv_rc return code and turn it into a ykpiv.Error.
 func getError(whoops C.ykpiv_rc, name string) error {
-	if err, ok := errorLookupMap[int8(whoops)]; ok {
+	if err, ok := errorLookupMap[int(whoops)]; ok {
 		err.where = fmt.Sprintf("ykpiv ykpiv_%s", name)
+		return err
+	}
+	return nil
+}
+
+// Take a ykpiv_rc return code and turn it into a ykpiv.Error.
+func getSWError(whoops int, name string) error {
+	if err, ok := swErrorLookupMap[int(whoops)]; ok {
+		err.where = fmt.Sprintf("ykpiv sw ykpiv_%s", name)
 		return err
 	}
 	return nil

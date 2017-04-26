@@ -325,12 +325,7 @@ func (y Yubikey) Reset() error {
 	if err != nil {
 		return err
 	}
-
-	if sw != C.SW_SUCCESS {
-		return fmt.Errorf("ykpiv: Reset: Failed to reset - are both the PIN and PUK blocked?")
-	}
-
-	return nil
+	return getSWError(sw, "transfer_data")
 }
 
 // Create a new Yubikey.
