@@ -21,6 +21,7 @@
 package ykpiv_test
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -195,6 +196,31 @@ func TestUpdate(t *testing.T) {
 		authentication.Certificate.Subject.CommonName == "paultag",
 		"Common Name is wrong",
 	)
+}
+
+func TestGenerateRSAEncryption(t *testing.T) {
+	isDestructive()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	isok(t, yubikey.Login())
+	isok(t, yubikey.Authenticate())
+
+	slot, err := yubikey.GenerateRSA(ykpiv.Authentication, 1024)
+	isok(t, err)
+	assert(t, slot.PublicKey.(*rsa.PublicKey).N.BitLen() == 1024, "BitLen is wrong")
+
+	plaintext := []byte("Well ain't this dandy")
+
+	ciphertext, err := rsa.EncryptPKCS1v15(rand.Reader, slot.PublicKey.(*rsa.PublicKey), plaintext)
+	isok(t, err)
+
+	computedPlaintext, err := slot.Decrypt(rand.Reader, ciphertext, nil)
+	isok(t, err)
+
+	assert(t, bytes.Compare(plaintext, computedPlaintext) == 0, "Plaintexts don't match")
 }
 
 func TestGenerateRSA1024(t *testing.T) {
