@@ -43,9 +43,20 @@ var (
 )
 
 func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
-	der = der[5:]
+	data := asn1.RawValue{}
+	rest, err := asn1.Unmarshal(der, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("ykpiv: GenerateRSA: der has trailing bytes")
+	}
+
+	der = data.Bytes
+
 	n := asn1.RawValue{}
-	rest, err := asn1.Unmarshal(der, &n)
+	rest, err = asn1.Unmarshal(der, &n)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +88,18 @@ func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
 	return &pubKey, nil
 }
 
+func (y Yubikey) GenerateRSASlot(id SlotId, bits int) (*Slot, error) {
+	pubKey, err := y.generateRSA(id, bits)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Slot{yubikey: y, Id: id, PublicKey: pubKey}, nil
+
+}
+
 // This ketamine fueled nightmare
-func (y Yubikey) GenerateRSA(slot SlotId, bits int) (crypto.PublicKey, error) {
+func (y Yubikey) generateRSA(slot SlotId, bits int) (crypto.PublicKey, error) {
 	var algorithm byte
 	switch bits {
 	case 1024:
@@ -93,8 +114,6 @@ func (y Yubikey) GenerateRSA(slot SlotId, bits int) (crypto.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	der = der[5:]
 
 	return decodeYubikeyRSAPublicKey(der)
 }
