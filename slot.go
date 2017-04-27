@@ -203,7 +203,7 @@ func (y Slot) GetCertificate() (*x509.Certificate, error) {
 
 // Write the x509 Certificate to the Yubikey.
 func (y *Slot) Update(cert x509.Certificate) error {
-	digitalTerroristPoison, err := bytearray.Encode([]asn1.RawValue{
+	certDer, err := bytearray.Encode([]asn1.RawValue{
 		asn1.RawValue{Tag: 0x10, IsCompound: true, Class: 0x01, Bytes: cert.Raw},
 		asn1.RawValue{Tag: 0x11, IsCompound: true, Class: 0x01, Bytes: []byte{0x00}},
 		asn1.RawValue{Tag: 0x1E, IsCompound: true, Class: 0x03, Bytes: []byte{}},
@@ -212,14 +212,14 @@ func (y *Slot) Update(cert x509.Certificate) error {
 		return err
 	}
 
-	cDigitalTerroristPoison := (*C.uchar)(C.CBytes(digitalTerroristPoison))
-	cDigitalTerroristPoisonLen := C.size_t(len(digitalTerroristPoison))
-	defer C.free(unsafe.Pointer(cDigitalTerroristPoison))
+	cCertDer := (*C.uchar)(C.CBytes(certDer))
+	cCertDerLen := C.size_t(len(certDer))
+	defer C.free(unsafe.Pointer(cCertDer))
 
 	if err := getError(C.ykpiv_save_object(
 		y.yubikey.state,
 		C.int(y.Id.Certificate),
-		cDigitalTerroristPoison, cDigitalTerroristPoisonLen,
+		cCertDer, cCertDerLen,
 	), "save_object"); err != nil {
 		return err
 	}
