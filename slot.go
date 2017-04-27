@@ -195,9 +195,6 @@ func (y Slot) GetCertificate() (*x509.Certificate, error) {
 		return nil, fmt.Errorf("ykpiv: GetCertificate: We expected two der byte arrays from the key")
 	}
 
-	// If this is throwing sequence truncated and/or trailing byte errors
-	// the first thing to double check is the byte mangling above, and
-	// if the comment above applies to this.
 	return x509.ParseCertificate(objects[0].Bytes)
 }
 
