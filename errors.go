@@ -97,7 +97,7 @@ var (
 	IncorrectParam      = Error{Code: C.SW_ERR_INCORRECT_PARAM, Message: "Incorrect Param"}
 	IncorrectSlot       = Error{Code: C.SW_ERR_INCORRECT_SLOT, Message: "Incorrect Slot"}
 
-	errorLookupMap = createErrorLookupMap(MemeoryError, PCSCError, SizeError, AppletError,
+	errorLookupMap = createErrorLookupMap(MemoryError, PCSCError, SizeError, AppletError,
 		AuthenticationError, RandomnessError, GenericError, KeyError, ParseError,
 		WrongPIN, InvalidObject, AlgorithmError, PINLockedError)
 
