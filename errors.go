@@ -78,7 +78,7 @@ func createErrorLookupMap(errs ...Error) map[int]Error {
 }
 
 var (
-	MemeoryError        = Error{Code: C.YKPIV_MEMORY_ERROR, Message: "Memory Error"}
+	MemoryError         = Error{Code: C.YKPIV_MEMORY_ERROR, Message: "Memory Error"}
 	PCSCError           = Error{Code: C.YKPIV_PCSC_ERROR, Message: "PKCS Error"}
 	SizeError           = Error{Code: C.YKPIV_SIZE_ERROR, Message: "Size Error"}
 	AppletError         = Error{Code: C.YKPIV_APPLET_ERROR, Message: "Applet Error"}
