@@ -140,8 +140,35 @@ func (y Yubikey) Close() error {
 	return nil
 }
 
-// get an object in the Yubikey
-func (y Yubikey) getObject(id int) ([]byte, error) {
+// Write the raw bytes out of a slot stored on the Yubikey. Callers to this
+// function should only do so if they understand exactly what data they're
+// writnig, what the data should look like, and avoid rebuilding existing
+// interfaces if at all possible.
+//
+// The related method, GetObject, can be used to read data later.
+// Care must be taken to ensure the `id` is *not* being used by
+// any other applications.
+func (y Yubikey) SaveObject(id int32, data []byte) error {
+	cData := (*C.uchar)(C.CBytes(data))
+	cDataLen := C.size_t(len(data))
+	defer C.free(unsafe.Pointer(cData))
+
+	return getError(C.ykpiv_save_object(
+		y.state,
+		C.int(id),
+		cData, cDataLen,
+	), "save_object")
+}
+
+// Get the raw bytes out of a slot stored on the Yubikey. Callers to this
+// function should only do so if they understand exactly what data they're
+// reading, what the data should look like, and avoid rebuilding existing
+// interfaces if at all possible.
+//
+// The related method, SaveObject, can be used to write data to be read back
+// later. Care must be taken to ensure the `id` is *not* being used by
+// any other applications.
+func (y Yubikey) GetObject(id int) ([]byte, error) {
 	var cDataLen C.ulong = 4096
 	var cData *C.uchar = (*C.uchar)(C.malloc(4096))
 	defer C.free(unsafe.Pointer(cData))

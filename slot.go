@@ -30,7 +30,6 @@ import "C"
 
 import (
 	"fmt"
-	"unsafe"
 
 	"encoding/asn1"
 
@@ -181,7 +180,7 @@ func (y Slot) getAlgorithm() (C.uchar, error) {
 
 // Get the x509.Certificate stored in the PIV Slot off the chip
 func (y Slot) GetCertificate() (*x509.Certificate, error) {
-	bytes, err := y.yubikey.getObject(int(y.Id.Certificate))
+	bytes, err := y.yubikey.GetObject(int(y.Id.Certificate))
 	if err != nil {
 		return nil, err
 	}
@@ -209,15 +208,7 @@ func (y *Slot) Update(cert x509.Certificate) error {
 		return err
 	}
 
-	cCertDer := (*C.uchar)(C.CBytes(certDer))
-	cCertDerLen := C.size_t(len(certDer))
-	defer C.free(unsafe.Pointer(cCertDer))
-
-	if err := getError(C.ykpiv_save_object(
-		y.yubikey.state,
-		C.int(y.Id.Certificate),
-		cCertDer, cCertDerLen,
-	), "save_object"); err != nil {
+	if err := y.yubikey.SaveObject(y.Id.Certificate, certDer); err != nil {
 		return err
 	}
 
