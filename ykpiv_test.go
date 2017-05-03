@@ -240,6 +240,23 @@ func TestGenerateRSA1024(t *testing.T) {
 	}
 }
 
+func TestWriteSaveCycle(t *testing.T) {
+	isDestructive()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	yubikey.Login()
+	yubikey.Authenticate()
+	isok(t, yubikey.SaveObject(0x5FCAFE, []byte("p̶͕͉̟ͅḁ̲̳̕u̪̬̯̗͎͡l̷͍͎̤̠t̥̗͞ag")))
+
+	whoami, err := yubikey.GetObject(0x5FCAFE)
+	isok(t, err)
+
+	assert(t, bytes.Compare(whoami, []byte("p̶͕͉̟ͅḁ̲̳̕u̪̬̯̗͎͡l̷͍͎̤̠t̥̗͞ag")) == 0, "get object returns good data")
+}
+
 func TestGenerateRSA2048(t *testing.T) {
 	isDestructive()
 
