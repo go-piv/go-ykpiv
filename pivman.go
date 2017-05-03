@@ -95,7 +95,7 @@ func (y Yubikey) deriveManagementKey() ([]byte, error) {
 func (y Yubikey) getPIVMANAttributes() (map[int][]byte, error) {
 	attributes := map[int][]byte{}
 
-	bytes, err := y.getObject(pivmanObjData)
+	bytes, err := y.GetObject(pivmanObjData)
 	if err != nil {
 		return nil, err
 	}
