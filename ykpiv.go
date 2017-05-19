@@ -394,6 +394,24 @@ func (y Yubikey) SaveCertificate(slotId SlotId, cert x509.Certificate) error {
 	return y.SaveObject(slotId.Certificate, certDer)
 }
 
+func (y Yubikey) GetCertificate(slotId SlotId) (*x509.Certificate, error) {
+	bytes, err := y.GetObject(int(slotId.Certificate))
+	if err != nil {
+		return nil, err
+	}
+
+	objects, err := bytearray.Decode(bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(objects) != 3 {
+		return nil, fmt.Errorf("ykpiv: GetCertificate: We expected two der byte arrays from the key")
+	}
+
+	return x509.ParseCertificate(objects[0].Bytes)
+}
+
 // Create a new Yubikey.
 //
 // This will use the options in the given `ykpiv.Options` struct to
