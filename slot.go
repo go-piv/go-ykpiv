@@ -34,8 +34,6 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/x509"
-
-	"pault.ag/go/ykpiv/internal/bytearray"
 )
 
 // SlotId encapsulates the Identifiers required to preform key operations
@@ -178,21 +176,7 @@ func (y Slot) getAlgorithm() (C.uchar, error) {
 
 // Get the x509.Certificate stored in the PIV Slot off the chip
 func (y Slot) GetCertificate() (*x509.Certificate, error) {
-	bytes, err := y.yubikey.GetObject(int(y.Id.Certificate))
-	if err != nil {
-		return nil, err
-	}
-
-	objects, err := bytearray.Decode(bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(objects) != 3 {
-		return nil, fmt.Errorf("ykpiv: GetCertificate: We expected two der byte arrays from the key")
-	}
-
-	return x509.ParseCertificate(objects[0].Bytes)
+	return y.yubikey.GetCertificate(y.Id)
 }
 
 // Write the x509 Certificate to the Yubikey.
