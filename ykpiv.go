@@ -33,8 +33,12 @@ import "C"
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/asn1"
 	"fmt"
 	"unsafe"
+
+	"pault.ag/go/ykpiv/internal/bytearray"
 )
 
 // Configuration for initialization of the Yubikey, as well as options that
@@ -374,6 +378,20 @@ func (y Yubikey) Reset() error {
 		return err
 	}
 	return getSWError(sw, "transfer_data")
+}
+
+// Write the x509 Certificate to the Yubikey.
+func (y Yubikey) SaveCertificate(slotId SlotId, cert x509.Certificate) error {
+	certDer, err := bytearray.Encode([]asn1.RawValue{
+		asn1.RawValue{Tag: 0x10, IsCompound: true, Class: 0x01, Bytes: cert.Raw},
+		asn1.RawValue{Tag: 0x11, IsCompound: true, Class: 0x01, Bytes: []byte{0x00}},
+		asn1.RawValue{Tag: 0x1E, IsCompound: true, Class: 0x03, Bytes: []byte{}},
+	})
+	if err != nil {
+		return err
+	}
+
+	return y.SaveObject(slotId.Certificate, certDer)
 }
 
 // Create a new Yubikey.
