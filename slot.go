@@ -31,8 +31,6 @@ import "C"
 import (
 	"fmt"
 
-	"encoding/asn1"
-
 	"crypto"
 	"crypto/rsa"
 	"crypto/x509"
@@ -199,16 +197,7 @@ func (y Slot) GetCertificate() (*x509.Certificate, error) {
 
 // Write the x509 Certificate to the Yubikey.
 func (y *Slot) Update(cert x509.Certificate) error {
-	certDer, err := bytearray.Encode([]asn1.RawValue{
-		asn1.RawValue{Tag: 0x10, IsCompound: true, Class: 0x01, Bytes: cert.Raw},
-		asn1.RawValue{Tag: 0x11, IsCompound: true, Class: 0x01, Bytes: []byte{0x00}},
-		asn1.RawValue{Tag: 0x1E, IsCompound: true, Class: 0x03, Bytes: []byte{}},
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := y.yubikey.SaveObject(y.Id.Certificate, certDer); err != nil {
+	if err := y.yubikey.SaveCertificate(y.Id, cert); err != nil {
 		return err
 	}
 
