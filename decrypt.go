@@ -21,7 +21,7 @@
 package ykpiv
 
 /*
-#cgo darwin LDFLAGS: -L /usr/local/bin -lykpiv
+#cgo darwin LDFLAGS: -L /usr/local/lib -lykpiv
 #cgo darwin CFLAGS: -I/usr/local/include/ykpiv/
 #cgo linux LDFLAGS: -lykpiv
 #cgo linux CFLAGS: -I/usr/include/ykpiv/
