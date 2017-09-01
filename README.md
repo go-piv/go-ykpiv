@@ -11,7 +11,7 @@ What's PIV?
 PIV Cards are cards defined by FIPS 201, a Federal US Government standard
 defining the ID cards employees use. At its core, it's a set of x509
 Certificates and corresponding private keys in a configuration that is
-standardized accross implementations.
+standardized across implementations.
 
 For more details on how PIV Tokens can be used, the FICAM
 (Federal Identity, Credential, and Access Management) team at GSA
