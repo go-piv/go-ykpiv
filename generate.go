@@ -41,9 +41,22 @@ import (
 	"pault.ag/go/ykpiv/internal/bytearray"
 )
 
-var (
-	// Tell the Yubikey to generate an asymetric key (like RSA or RCC)
-	ykpivInsGenerateAsymetric byte = 0x47
+type TouchPolicy byte
+
+const (
+	TouchPolicyNull   TouchPolicy = 0
+	TouchPolicyNever              = TouchPolicy(C.YKPIV_TOUCHPOLICY_NEVER)
+	TouchPolicyAlways             = TouchPolicy(C.YKPIV_TOUCHPOLICY_ALWAYS)
+	TouchPolicyCached             = TouchPolicy(C.YKPIV_TOUCHPOLICY_CACHED)
+)
+
+type PinPolicy byte
+
+const (
+	PinPolicyNull   PinPolicy = 0
+	PinPolicyNever            = PinPolicy(C.YKPIV_PINPOLICY_NEVER)
+	PinPolicyOnce             = PinPolicy(C.YKPIV_PINPOLICY_ONCE)
+	PinPolicyAlways           = PinPolicy(C.YKPIV_PINPOLICY_ALWAYS)
 )
 
 // Decode a DER encoded list of byte arrays into an rsa.PublicKey.
@@ -83,8 +96,15 @@ func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
 // and construct a Certificate-less Slot. This Slot can not be recovered
 // later, so it should be used to sign a CSR or Self-Signed Certificate
 // before we lose the key material.
-func (y Yubikey) GenerateRSA(id SlotId, bits int) (*Slot, error) {
-	pubKey, err := y.generateRSAKey(id, bits)
+func (y Yubikey) GenerateRSA(id SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (*Slot, error) {
+	return y.GenerateRSAWithPolicies(id, bits, PinPolicyNull, TouchPolicyNull)
+}
+
+// The same as GenerateRSAWithPolicies, but with additional parameters to
+// specify the pin policy and touch policy to be assigned to the generated
+// key.
+func (y Yubikey) GenerateRSAWithPolicies(id SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (*Slot, error) {
+	pubKey, err := y.generateRSAKey(id, bits, pinPolicy, touchPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +116,7 @@ func (y Yubikey) GenerateRSA(id SlotId, bits int) (*Slot, error) {
 // Generate an RSA public key on the Yubikey, parse the output and return
 // a crypto.PublicKey. This will create the key in slot `slot`, with a
 // modulus size of `bits`.
-func (y Yubikey) generateRSAKey(slot SlotId, bits int) (crypto.PublicKey, error) {
+func (y Yubikey) generateRSAKey(slot SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (crypto.PublicKey, error) {
 	var algorithm byte
 	switch bits {
 	case 1024:
@@ -107,7 +127,7 @@ func (y Yubikey) generateRSAKey(slot SlotId, bits int) (crypto.PublicKey, error)
 		return nil, fmt.Errorf("ykpiv: GenerateRSA: Unknown bit size: %d", bits)
 	}
 
-	der, err := y.generateKey(slot, algorithm)
+	der, err := y.generateKey(slot, algorithm, pinPolicy, touchPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -122,10 +142,22 @@ func (y Yubikey) generateRSAKey(slot SlotId, bits int) (crypto.PublicKey, error)
 // This will return the raw bytes from the actual Yubikey itself back to
 // the caller to appropriately parse the output. In the case of RSA keys,
 // this is a DER encoded series of DER encoded byte arrays for N and E.
-func (y Yubikey) generateKey(slot SlotId, algorithm byte) ([]byte, error) {
+func (y Yubikey) generateKey(slot SlotId, algorithm byte, pinPolicy PinPolicy, touchPolicy TouchPolicy) ([]byte, error) {
+
+	inData := []byte{C.YKPIV_ALGO_TAG, 1, algorithm}
+	if pinPolicy != PinPolicyNull {
+		inData = append(inData, C.YKPIV_PINPOLICY_TAG, 1, byte(pinPolicy))
+	}
+	if touchPolicy != TouchPolicyNull {
+		inData = append(inData, C.YKPIV_TOUCHPOLICY_TAG, 1, byte(touchPolicy))
+	}
+
+	// Prepend with 0xAC and length of the inData
+	inData = append([]byte{0xAC, byte(len(inData))}, inData...)
+
 	sw, data, err := y.transferData(
-		[]byte{0x00, ykpivInsGenerateAsymetric, 0x00, byte(slot.Key)},
-		[]byte{0xAC, 3, C.YKPIV_ALGO_TAG, 1, algorithm},
+		[]byte{0x00, byte(C.YKPIV_INS_GENERATE_ASYMMETRIC), 0x00, byte(slot.Key)},
+		inData,
 		1024,
 	)
 	if err != nil {
