@@ -70,6 +70,33 @@ func isDestructive() {
 	}
 }
 
+func TestImportKey(t *testing.T) {
+	isDestructive()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	isok(t, yubikey.Login())
+	isok(t, yubikey.Authenticate())
+
+	privKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	isok(t, err)
+
+	slot, err := yubikey.ImportKey(ykpiv.KeyManagement, privKey)
+	isok(t, err)
+
+	plaintext := []byte("Well ain't this dandy")
+
+	encrypted, err := rsa.EncryptPKCS1v15(rand.Reader, &privKey.PublicKey, plaintext)
+	isok(t, err)
+
+	decrypted, err := slot.Decrypt(rand.Reader, encrypted, nil)
+	isok(t, err)
+
+	assert(t, bytes.Equal(plaintext, decrypted), "Plaintexts don't match")
+}
+
 func getYubikey(PIN, PUK string) (*ykpiv.Yubikey, func() error, error) {
 	yk, err := ykpiv.New(ykpiv.Options{
 		Reader:             yubikeyReaderName,
