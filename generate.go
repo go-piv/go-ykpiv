@@ -39,6 +39,8 @@ import (
 	"crypto/rsa"
 
 	"pault.ag/go/ykpiv/internal/bytearray"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 )
 
 type TouchPolicy byte
@@ -92,11 +94,43 @@ func decodeYubikeyRSAPublicKey(der []byte) (*rsa.PublicKey, error) {
 	return &pubKey, nil
 }
 
+func decodeYubikeyECPublicKey(curve elliptic.Curve, der []byte) (*ecdsa.PublicKey, error) {
+	byteArray, err := bytearray.DERDecode(der)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(byteArray) != 1 {
+		return nil, fmt.Errorf("ykpiv: decodeYubikeyECPublicKey: Byte Array isn't length 1")
+	}
+
+	publicPointSpec := byteArray[0].Bytes
+	if publicPointSpec[0] != 0x04 {
+		return nil, fmt.Errorf("ykpiv: decodeYubikeyECPublicKey: EC public point byte != 4: %d", publicPointSpec[0])
+	}
+
+	pointLen := (curve.Params().BitSize+7)/8
+	if len(publicPointSpec) != 2 * pointLen + 1 {
+		return nil, fmt.Errorf("ykpiv: decodeYubikeyECPublicKey: EC public point bytes wrong length; %d", len(publicPointSpec))
+	}
+
+	x := new(big.Int)
+	x.SetBytes(publicPointSpec[1:1+pointLen])
+	y := new(big.Int)
+	y.SetBytes(publicPointSpec[1+pointLen:1+2*pointLen])
+
+	return &ecdsa.PublicKey{
+		Curve: curve,
+		X: x,
+		Y: y,
+	}, nil
+}
+
 // Generate an RSA Keypair in slot `id` (using a modulus size of `bits`),
 // and construct a Certificate-less Slot. This Slot can not be recovered
 // later, so it should be used to sign a CSR or Self-Signed Certificate
 // before we lose the key material.
-func (y Yubikey) GenerateRSA(id SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (*Slot, error) {
+func (y Yubikey) GenerateRSA(id SlotId, bits int) (*Slot, error) {
 	return y.GenerateRSAWithPolicies(id, bits, PinPolicyNull, TouchPolicyNull)
 }
 
@@ -133,6 +167,33 @@ func (y Yubikey) generateRSAKey(slot SlotId, bits int, pinPolicy PinPolicy, touc
 	}
 
 	return decodeYubikeyRSAPublicKey(der)
+}
+
+func (y Yubikey) GenerateECKey(slot SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (*Slot, error) {
+
+	var curve elliptic.Curve
+	var algorithm byte
+	switch bits {
+	case 256:
+		curve = elliptic.P256()
+		algorithm = C.YKPIV_ALGO_ECCP256
+	case 384:
+		curve = elliptic.P384()
+		algorithm = C.YKPIV_ALGO_ECCP384
+	default:
+		return nil, fmt.Errorf("ykpiv: GenerateECKey: Unknown bit size: %d", bits)
+	}
+
+	der, err := y.generateKey(slot, algorithm, pinPolicy, touchPolicy)
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey, err := decodeYubikeyECPublicKey(curve, der)
+	if err != nil {
+		return nil, err
+	}
+	return &Slot{yubikey: y, Id: slot, PublicKey: pubKey}, nil
 }
 
 // This is a low-level binding into the underlying instruction to actually
