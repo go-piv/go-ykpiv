@@ -36,6 +36,7 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/ecdsa"
 )
 
 // SlotId encapsulates the Identifiers required to preform key operations
@@ -170,6 +171,16 @@ func (y Slot) getAlgorithm() (C.uchar, error) {
 			return C.YKPIV_ALGO_RSA2048, nil
 		default:
 			return C.uchar(0), fmt.Errorf("ykpiv: getAlgorithm: Unknown RSA Modulus size")
+		}
+	case *ecdsa.PublicKey:
+		ecPub := pubKey.(*ecdsa.PublicKey)
+		switch ecPub.Params().BitSize {
+		case 256:
+			return C.YKPIV_ALGO_ECCP256, nil
+		case 384:
+			return C.YKPIV_ALGO_ECCP384, nil
+		default:
+			return C.uchar(0), fmt.Errorf("ykpiv: getAlgorithm: Unknown ECDSA curive size")
 		}
 	default:
 		return C.uchar(0), fmt.Errorf("ykpiv: getAlgorithm: Unknown public key algorithm")
