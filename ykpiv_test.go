@@ -22,6 +22,7 @@ package ykpiv_test
 
 import (
 	"bytes"
+	"crypto"
 	"fmt"
 	"io"
 	"log"
@@ -33,6 +34,7 @@ import (
 
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha512"
 	"crypto/x509"
 	"crypto/x509/pkix"
 
@@ -68,6 +70,59 @@ func isDestructive() {
 	if err := wipeYubikey(); err != nil {
 		panic(err)
 	}
+}
+
+func TestImportKey(t *testing.T) {
+	isDestructive()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	isok(t, yubikey.Login())
+	isok(t, yubikey.Authenticate())
+
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	isok(t, err)
+
+	slot, err := yubikey.ImportKey(ykpiv.KeyManagement, privKey)
+	isok(t, err)
+
+	plaintext := []byte("Well ain't this dandy")
+
+	encrypted, err := rsa.EncryptPKCS1v15(rand.Reader, &privKey.PublicKey, plaintext)
+	isok(t, err)
+
+	decrypted, err := slot.Decrypt(rand.Reader, encrypted, nil)
+	isok(t, err)
+
+	assert(t, bytes.Equal(plaintext, decrypted), "Plaintexts don't match")
+
+	template := certificateTemplate()
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, slot.PublicKey, slot)
+	isok(t, err)
+
+	cert, err := x509.ParseCertificate(derBytes)
+	isok(t, err)
+
+	err = slot.Update(*cert)
+	isok(t, err)
+
+	slot, err = yubikey.KeyManagement()
+	isok(t, err)
+
+	assert(t, slot.Certificate.Subject.CommonName == template.Subject.CommonName, "Certificate common names are doesn't match")
+
+	hasher := sha512.New()
+	_, err = hasher.Write(plaintext)
+	isok(t, err)
+	hashed := hasher.Sum(plaintext[:0])
+
+	signature, err := slot.Sign(nil, hashed, crypto.SHA512)
+	isok(t, err)
+
+	err = rsa.VerifyPKCS1v15(&privKey.PublicKey, crypto.SHA512, hashed, signature)
+	isok(t, err)
 }
 
 func getYubikey(PIN, PUK string) (*ykpiv.Yubikey, func() error, error) {
@@ -132,11 +187,17 @@ func TestReader(t *testing.T) {
 }
 
 func certificateTemplate() x509.Certificate {
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		panic(err)
+	}
+
 	notBefore := time.Now()
-	notAfter := notBefore.Add(time.Minute * 1)
+	notAfter := notBefore.Add(time.Hour * 24)
 
 	return x509.Certificate{
-		SerialNumber: big.NewInt(0x1337),
+		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName:   "p̶͕͉̟ͅḁ̲̳̕u̪̬̯̗͎͡l̷͍͎̤̠t̥̗͞ag",
 			Organization: []string{"go-ykpiv"},

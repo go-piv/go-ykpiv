@@ -35,9 +35,13 @@ import "C"
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/asn1"
+	"errors"
 	"fmt"
+	"math/big"
 	"unsafe"
 
 	"pault.ag/go/ykpiv/internal/bytearray"
@@ -380,6 +384,100 @@ func (y Yubikey) Reset() error {
 		return err
 	}
 	return getSWError(sw, "transfer_data")
+}
+
+// ImportKey function imports a private key to the specified slot
+func (y Yubikey) ImportKey(slotID SlotId, privKey crypto.PrivateKey) (*Slot, error) {
+	var rsaPrivKey rsa.PrivateKey
+
+	switch privKey.(type) {
+	case rsa.PrivateKey:
+		rsaPrivKey = privKey.(rsa.PrivateKey)
+
+	case *rsa.PrivateKey:
+		rsaPrivKey = *(privKey.(*rsa.PrivateKey))
+
+	default:
+		return nil, errors.New("ykpiv: ImportKey: non RSA key importing not supported yet")
+	}
+
+	var algorithm byte
+
+	switch rsaPrivKey.N.BitLen() {
+	case 1024:
+		algorithm = C.YKPIV_ALGO_RSA1024
+
+	case 2048:
+		algorithm = C.YKPIV_ALGO_RSA2048
+
+	default:
+		return nil, fmt.Errorf("ykpiv: ImportKey: Unusable key of %d bits, only 1024 and 2048 are supported", rsaPrivKey.N.BitLen())
+	}
+
+	e := big.NewInt(int64(rsaPrivKey.PublicKey.E)).Bytes()
+	p := rsaPrivKey.Primes[0].Bytes()
+	q := rsaPrivKey.Primes[1].Bytes()
+	dp := rsaPrivKey.Precomputed.Dp.Bytes()
+	dq := rsaPrivKey.Precomputed.Dq.Bytes()
+	qinv := rsaPrivKey.Precomputed.Qinv.Bytes()
+
+	elLen := rsaPrivKey.N.BitLen() / 16
+
+	var _p, _q, _dp, _dq, _qinv *C.uchar
+
+	if len(e) != 3 || e[0] != 0x01 || e[1] != 0x00 || e[2] != 0x01 {
+		return nil, errors.New("ykpiv: ImportKey: Invalid public exponent (E) for import (only 0x10001 supported)")
+	}
+
+	if len(p) <= elLen {
+		_p = (*C.uchar)(C.CBytes(p))
+		defer C.free(unsafe.Pointer(_p))
+	} else {
+		return nil, errors.New("ykpiv: ImportKey: Failed setting P component")
+	}
+
+	if len(q) <= elLen {
+		_q = (*C.uchar)(C.CBytes(q))
+		defer C.free(unsafe.Pointer(_q))
+	} else {
+		return nil, errors.New("ykpiv: ImportKey: Failed setting Q component")
+	}
+
+	if len(dp) <= elLen {
+		_dp = (*C.uchar)(C.CBytes(dp))
+		defer C.free(unsafe.Pointer(_dp))
+	} else {
+		return nil, errors.New("ykpiv: ImportKey: Failed setting DP component")
+	}
+
+	if len(dq) <= elLen {
+		_dq = (*C.uchar)(C.CBytes(dq))
+		defer C.free(unsafe.Pointer(_dq))
+	} else {
+		return nil, errors.New("ykpiv: ImportKey: Failed setting DQ component")
+	}
+
+	if len(qinv) <= elLen {
+		_qinv = (*C.uchar)(C.CBytes(qinv))
+		defer C.free(unsafe.Pointer(_qinv))
+	} else {
+		return nil, errors.New("ykpiv: ImportKey: Failed setting QINV component")
+	}
+
+	if err := getError(C.ykpiv_import_private_key(
+		y.state, C.uchar(slotID.Key), C.uchar(algorithm),
+		_p, C.size_t(len(p)),
+		_q, C.size_t(len(q)),
+		_dp, C.size_t(len(dp)),
+		_dq, C.size_t(len(dq)),
+		_qinv, C.size_t(len(qinv)),
+		nil, C.uchar(0),
+		C.uchar(0), C.uchar(0),
+	), "import_private_key"); err != nil {
+		return nil, err
+	}
+
+	return &Slot{yubikey: y, Id: slotID, PublicKey: &rsaPrivKey.PublicKey}, nil
 }
 
 // Write the x509 Certificate to the Yubikey.
