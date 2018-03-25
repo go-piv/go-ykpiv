@@ -36,11 +36,11 @@ import (
 	"math/big"
 
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rsa"
 
 	"pault.ag/go/ykpiv/internal/bytearray"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 )
 
 type TouchPolicy byte
@@ -109,20 +109,20 @@ func decodeYubikeyECPublicKey(curve elliptic.Curve, der []byte) (*ecdsa.PublicKe
 		return nil, fmt.Errorf("ykpiv: decodeYubikeyECPublicKey: EC public point byte != 4: %d", publicPointSpec[0])
 	}
 
-	pointLen := (curve.Params().BitSize+7)/8
-	if len(publicPointSpec) != 2 * pointLen + 1 {
+	pointLen := (curve.Params().BitSize + 7) / 8
+	if len(publicPointSpec) != 2*pointLen+1 {
 		return nil, fmt.Errorf("ykpiv: decodeYubikeyECPublicKey: EC public point bytes wrong length; %d", len(publicPointSpec))
 	}
 
 	x := new(big.Int)
-	x.SetBytes(publicPointSpec[1:1+pointLen])
+	x.SetBytes(publicPointSpec[1 : 1+pointLen])
 	y := new(big.Int)
-	y.SetBytes(publicPointSpec[1+pointLen:1+2*pointLen])
+	y.SetBytes(publicPointSpec[1+pointLen : 1+2*pointLen])
 
 	return &ecdsa.PublicKey{
 		Curve: curve,
-		X: x,
-		Y: y,
+		X:     x,
+		Y:     y,
 	}, nil
 }
 
@@ -169,8 +169,20 @@ func (y Yubikey) generateRSAKey(slot SlotId, bits int, pinPolicy PinPolicy, touc
 	return decodeYubikeyRSAPublicKey(der)
 }
 
-func (y Yubikey) GenerateECKey(slot SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (*Slot, error) {
+func (y Yubikey) GenerateEC(slot SlotId, bits int) (*Slot, error) {
+	return y.GenerateECWithPolicies(slot, bits, PinPolicyNull, TouchPolicyNull)
+}
 
+func (y Yubikey) GenerateECWithPolicies(slot SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (*Slot, error) {
+	pubKey, err := y.generateECKey(slot, bits, pinPolicy, touchPolicy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Slot{yubikey: y, Id: slot, PublicKey: pubKey}, nil
+}
+
+func (y Yubikey) generateECKey(slot SlotId, bits int, pinPolicy PinPolicy, touchPolicy TouchPolicy) (crypto.PublicKey, error) {
 	var curve elliptic.Curve
 	var algorithm byte
 	switch bits {
@@ -181,7 +193,7 @@ func (y Yubikey) GenerateECKey(slot SlotId, bits int, pinPolicy PinPolicy, touch
 		curve = elliptic.P384()
 		algorithm = C.YKPIV_ALGO_ECCP384
 	default:
-		return nil, fmt.Errorf("ykpiv: GenerateECKey: Unknown bit size: %d", bits)
+		return nil, fmt.Errorf("ykpiv: generateECKey: Unknown bit size: %d", bits)
 	}
 
 	der, err := y.generateKey(slot, algorithm, pinPolicy, touchPolicy)
@@ -193,7 +205,8 @@ func (y Yubikey) GenerateECKey(slot SlotId, bits int, pinPolicy PinPolicy, touch
 	if err != nil {
 		return nil, err
 	}
-	return &Slot{yubikey: y, Id: slot, PublicKey: pubKey}, nil
+
+	return pubKey, nil
 }
 
 // This is a low-level binding into the underlying instruction to actually
