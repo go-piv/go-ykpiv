@@ -24,16 +24,20 @@ import (
 	"bytes"
 	"crypto"
 	"fmt"
+	"hash"
 	"io"
-	"log"
 	"os"
 	"testing"
 	"time"
 
+	"encoding/asn1"
+
 	"math/big"
 
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -42,23 +46,24 @@ import (
 )
 
 func isok(t *testing.T, err error) {
+	t.Helper()
 	if err != nil && err != io.EOF {
-		log.Printf("Error! Error is not nil! %s\n", err)
-		t.FailNow()
+		t.Fatalf("Error! Error is not nil! %s", err)
 	}
 }
 
 func notok(t *testing.T, err error) {
+	t.Helper()
 	if err == nil {
-		log.Printf("Error! Error is nil!\n")
 		t.FailNow()
+		t.Fatal("Error! Error is nil!")
 	}
 }
 
 func assert(t *testing.T, expr bool, what string) {
+	t.Helper()
 	if !expr {
-		log.Printf("Assertion failed: %s", what)
-		t.FailNow()
+		t.Fatalf("Assertion failed: %s", what)
 	}
 }
 
@@ -220,43 +225,62 @@ func TestUpdate(t *testing.T) {
 	isok(t, yubikey.Login())
 	isok(t, yubikey.Authenticate())
 
-	slot, err := yubikey.GenerateRSA(ykpiv.Authentication, 1024)
-	isok(t, err)
+	slotFunc := map[ykpiv.SlotId]func() (*ykpiv.Slot, error){
+		ykpiv.Authentication:     yubikey.Authentication,
+		ykpiv.Signature:          yubikey.Signature,
+		ykpiv.KeyManagement:      yubikey.KeyManagement,
+		ykpiv.CardAuthentication: yubikey.CardAuthentication,
+	}
 
-	template := certificateTemplate()
-	derCertificate, err := x509.CreateCertificate(rand.Reader, &template, &template, slot.PublicKey, slot)
-	isok(t, err)
-	certificate, err := x509.ParseCertificate(derCertificate)
-	isok(t, err)
-	isok(t, slot.Update(*certificate))
-	authentication, err := yubikey.Authentication()
-	isok(t, err)
-	assert(
-		t,
-		authentication.Certificate.Subject.CommonName == template.Subject.CommonName,
-		"Common Name is wrong",
-	)
+	for _, slotId := range allSlots {
 
-	// Now, let's assert it's not what we're going to check next.
-	assert(
-		t,
-		authentication.Certificate.Subject.CommonName != "paultag",
-		"Common Name is wrong",
-	)
+		slot, err := yubikey.GenerateRSA(slotId, 1024)
+		isok(t, err)
 
-	template.Subject.CommonName = "paultag"
-	derCertificate, err = x509.CreateCertificate(rand.Reader, &template, &template, slot.PublicKey, slot)
-	isok(t, err)
-	certificate, err = x509.ParseCertificate(derCertificate)
-	isok(t, err)
-	isok(t, slot.Update(*certificate))
-	authentication, err = yubikey.Authentication()
-	isok(t, err)
-	assert(
-		t,
-		authentication.Certificate.Subject.CommonName == "paultag",
-		"Common Name is wrong",
-	)
+		// When using "Digital Signature" slot, PIN must be provided every time.
+		if slot.Id == ykpiv.Signature {
+			isok(t, yubikey.Login())
+		}
+
+		template := certificateTemplate()
+		derCertificate, err := x509.CreateCertificate(rand.Reader, &template, &template, slot.PublicKey, slot)
+		isok(t, err)
+		certificate, err := x509.ParseCertificate(derCertificate)
+		isok(t, err)
+		isok(t, slot.Update(*certificate))
+		slot1, err := slotFunc[slot.Id]()
+		isok(t, err)
+		assert(
+			t,
+			slot1.Certificate.Subject.CommonName == template.Subject.CommonName,
+			"Common Name is wrong",
+		)
+
+		// Now, let's assert it's not what we're going to check next.
+		assert(
+			t,
+			slot1.Certificate.Subject.CommonName != "paultag",
+			"Common Name is wrong",
+		)
+
+		if slot.Id == ykpiv.Signature {
+			isok(t, yubikey.Login())
+		}
+
+		template.Subject.CommonName = "paultag"
+		derCertificate, err = x509.CreateCertificate(rand.Reader, &template, &template, slot.PublicKey, slot)
+		isok(t, err)
+		certificate, err = x509.ParseCertificate(derCertificate)
+		isok(t, err)
+		isok(t, slot.Update(*certificate))
+		slot2, err := slotFunc[slot.Id]()
+		isok(t, err)
+		assert(
+			t,
+			slot2.Certificate.Subject.CommonName == "paultag",
+			"Common Name is wrong",
+		)
+	}
 }
 
 func TestGenerateRSAEncryption(t *testing.T) {
@@ -333,6 +357,72 @@ func TestGenerateRSA2048(t *testing.T) {
 		isok(t, err)
 		assert(t, slot.PublicKey.(*rsa.PublicKey).N.BitLen() == 2048, "BitLen is wrong")
 	}
+}
+
+func TestSignEC(t *testing.T) {
+	isDestructive()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	for _, bits := range []int{256, 384} {
+		for _, slotId := range allSlots {
+			for _, hf := range []struct {
+				newh func() hash.Hash
+				hash crypto.Hash
+			}{
+				{sha512.New, crypto.SHA512},
+				{sha256.New, crypto.SHA256},
+			} {
+
+				isok(t, yubikey.Login())
+				isok(t, yubikey.Authenticate())
+
+				slot, err := yubikey.GenerateEC(slotId, bits)
+				isok(t, err)
+
+				h := hf.newh()
+				_, err = h.Write([]byte("test"))
+				isok(t, err)
+				digest := h.Sum(nil)
+
+				// When using "Digital Signature" slot, PIN must be provided every time.
+				if slotId == ykpiv.Signature {
+					isok(t, yubikey.Login())
+				}
+
+				sig, err := slot.Sign(nil, digest[:], hf.hash)
+				isok(t, err)
+
+				pubKey, ok := slot.PublicKey.(*ecdsa.PublicKey)
+				assert(t, ok, "invalid public key type")
+
+				R, S := decodeSig(t, sig)
+				ok = ecdsa.Verify(pubKey, digest[:], R, S)
+				assert(t, ok, "ECDSA verification failed")
+			}
+		}
+	}
+}
+
+func decodeSig(t *testing.T, sig []byte) (R *big.Int, S *big.Int) {
+	t.Helper()
+	rawData := asn1.RawValue{}
+	_, err := asn1.Unmarshal(sig, &rawData)
+	isok(t, err)
+	RB := asn1.RawValue{}
+	rest, err := asn1.Unmarshal(rawData.Bytes, &RB)
+	isok(t, err)
+	assert(t, len(rest) != 0, "S missing")
+	SB := asn1.RawValue{}
+	rest, err = asn1.Unmarshal(rest, &SB)
+	assert(t, len(rest) == 0, "unexpected extra data")
+	R = new(big.Int)
+	R.SetBytes(RB.Bytes)
+	S = new(big.Int)
+	S.SetBytes(SB.Bytes)
+	return
 }
 
 func TestMain(m *testing.M) {

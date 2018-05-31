@@ -44,7 +44,7 @@ import (
 
 // PKCS#1 9.2.1 defines a method to push the hash algorithm used into the
 // digest before the signature. More exactly, we prepend some ASN.1 with
-// conatins the Obejct ID for the hash algorithm used. Since we know a lot
+// contains the Object ID for the hash algorithm used. Since we know a lot
 // about the digest and the OID, we can just prefix the digest with some ASN.1
 // fresh off the CPU
 var hashOIDs = map[crypto.Hash][]byte{
