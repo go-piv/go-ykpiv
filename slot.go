@@ -34,9 +34,9 @@ import (
 	"fmt"
 
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
-	"crypto/ecdsa"
 )
 
 // SlotId encapsulates the Identifiers required to preform key operations
@@ -91,6 +91,16 @@ var (
 		Certificate: C.YKPIV_OBJ_KEY_MANAGEMENT,
 		Key:         C.YKPIV_KEY_KEYMGM,
 		Name:        "Key Management",
+	}
+
+	// Attestation, which contains a certificate issued by the Yubico CA
+	// and can be used to attest keys generated in the other slots.
+	// Requires YubiKey 4.3 or later.
+	// NB: if this key or cert is overwritten it cannot be brought back!
+	Attestation SlotId = SlotId{
+		Certificate: C.YKPIV_OBJ_ATTESTATION,
+		Key:         C.YKPIV_KEY_ATTESTATION,
+		Name:        "Attestation",
 	}
 )
 

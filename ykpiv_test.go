@@ -283,6 +283,43 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
+func TestAttestation(t *testing.T) {
+	// NB: this will fail if the Yubico CA-signed attestation cert
+	// has been overwritten.
+	isDestructive()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	isok(t, yubikey.Login())
+	isok(t, yubikey.Authenticate())
+
+	attestationCert, err := yubikey.GetCertificate(ykpiv.Attestation)
+	isok(t, err)
+
+	slot := ykpiv.Authentication
+	_, err = yubikey.GenerateEC(slot, 256)
+	isok(t, err)
+
+	attestedCert, err := yubikey.Attest(slot)
+	isok(t, err)
+
+	// instead of maintaining a bundle of Yubico CA certs here, we'll just
+	// set the attestation cert as the root and mark it as valid for signing
+	// this won't check the full chain, just that the attestation cert can
+	// verify the attested cert
+	attestationCert.BasicConstraintsValid = true
+	attestationCert.IsCA = true
+	opts := x509.VerifyOptions{
+		Roots: x509.NewCertPool(),
+	}
+	opts.Roots.AddCert(attestationCert)
+
+	_, err = attestedCert.Verify(opts)
+	isok(t, err)
+}
+
 func TestGenerateRSAEncryption(t *testing.T) {
 	isDestructive()
 

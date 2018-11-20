@@ -325,6 +325,20 @@ func (y Yubikey) ChangePIN(oldPin, newPin string) error {
 	), "change_pin")
 }
 
+// Attest returns an *x509.Certificate attesting the key in slotId.
+// Use it with the attestation certificate in the Attestation slot
+// and the Yubico PIV Root CA certificate to verify attestation.
+func (y Yubikey) Attest(slotId SlotId) (*x509.Certificate, error) {
+	var cDataLen C.size_t = 4096
+	var cData *C.uchar = (*C.uchar)(C.malloc(4096))
+	defer C.free(unsafe.Pointer(cData))
+
+	if err := getError(C.ykpiv_attest(y.state, C.uchar(slotId.Key), cData, &cDataLen), "attest"); err != nil {
+		return nil, err
+	}
+	return x509.ParseCertificate(C.GoBytes(unsafe.Pointer(cData), C.int(cDataLen)))
+}
+
 // Authenticate to the Yubikey using the Management Key. This key is a 24 byte
 // key that's used as a 3DES key internally to write new Certificates, or
 // create a new keypair.
@@ -505,7 +519,7 @@ func (y Yubikey) GetCertificate(slotId SlotId) (*x509.Certificate, error) {
 		return nil, err
 	}
 
-	if len(objects) != 3 {
+	if len(objects) != 3 && slotId != Attestation {
 		return nil, fmt.Errorf("ykpiv: GetCertificate: We expected two der byte arrays from the key")
 	}
 
