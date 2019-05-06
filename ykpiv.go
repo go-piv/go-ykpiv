@@ -143,11 +143,6 @@ func (y Yubikey) Close() error {
 	}
 
 	return getError(C.ykpiv_done(y.state), "done")
-
-	// calling ykpiv_done will free the underlying ykpiv_state. Doing a C.free
-	// here will result in a double-free, but thanks for noticing and keeping
-	// memory tidy!
-	return nil
 }
 
 // Write the raw bytes out of a slot stored on the Yubikey. Callers to this
