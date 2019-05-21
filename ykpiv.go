@@ -28,6 +28,8 @@ package ykpiv
 #cgo darwin CFLAGS: -I/usr/local/include/ykpiv/
 #cgo linux LDFLAGS: -lykpiv -Wl,--allow-multiple-definition
 #cgo linux CFLAGS: -I/usr/include/ykpiv/
+#cgo windows CFLAGS: -I./win/include/ykpiv/
+#cgo windows LDFLAGS: ./win/lib/libykpiv.dll.a
 #include <ykpiv.h>
 #include <stdlib.h>
 */

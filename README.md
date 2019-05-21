@@ -92,6 +92,15 @@ func main() {
 }
 ```
 
+Running on Windows
+==================
+1. Download `yubico-piv-tool-1.7.0-win64.zip` from the official site
+2. Create directory win in the root of the project
+3. Copy `lib` and `include` directories from the downloaded archive to the `win` directory
+4. Copy all DLLs  from the `bin` directory in the archive to the root of your project
+5. Copy `libwinpthread-1.dll` from `C:\TDM-GCC-64\bin` to the root of your project
+
+
 LICENSE
 =======
 
