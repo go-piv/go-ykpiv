@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -39,6 +40,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 
@@ -441,6 +443,53 @@ func TestSignEC(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestTLSCertificate(t *testing.T) {
+	isDestructive()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	isok(t, yubikey.Login())
+	isok(t, yubikey.Authenticate())
+
+	tmpl := &x509.Certificate{
+		Subject:      pkix.Name{CommonName: "my-server"},
+		SerialNumber: big.NewInt(1000),
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"pipe"},
+	}
+
+	slot, err := yubikey.GenerateEC(ykpiv.Authentication, 256)
+	isok(t, err)
+	certDER, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, slot.PublicKey, slot)
+	isok(t, err)
+
+	cert, err := x509.ParseCertificate(certDER)
+	isok(t, err)
+	isok(t, slot.Update(*cert))
+
+	certPool := x509.NewCertPool()
+	certPool.AddCert(cert)
+
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+	c := tls.Client(clientConn, &tls.Config{ServerName: "pipe", RootCAs: certPool})
+	s := tls.Server(serverConn, &tls.Config{
+		Certificates: []tls.Certificate{slot.TLSCertificate()},
+	})
+
+	errc := make(chan error)
+	go func() { errc <- c.Handshake() }()
+	go func() { errc <- s.Handshake() }()
+	isok(t, <-errc)
+	isok(t, <-errc)
 }
 
 func decodeSig(t *testing.T, sig []byte) (R *big.Int, S *big.Int) {

@@ -21,15 +21,24 @@
 package ykpiv
 
 import (
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/tls"
 )
 
 // Create a tls.Certificate fit for use in crypto/tls applications,
 // such as net/http, or grpc.
 func (slot Slot) TLSCertificate() tls.Certificate {
+	var privKey crypto.PrivateKey = slot
+	if _, ok := slot.PublicKey.(*ecdsa.PublicKey); ok {
+		// ECDSA keys don't implement decryption and crypto/tls will return
+		// an error if the private key implements crypto.Decrypter. Hide the
+		// Decrypt() method for EC keys.
+		privKey = struct{ crypto.Signer }{slot}
+	}
 	return tls.Certificate{
 		Certificate: [][]byte{slot.Certificate.Raw},
-		PrivateKey:  slot,
+		PrivateKey:  privKey,
 		Leaf:        slot.Certificate,
 	}
 }
