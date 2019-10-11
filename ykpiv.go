@@ -223,6 +223,42 @@ func (y Yubikey) verify(cPin *C.char) (int, error) {
 	return int(tries), nil
 }
 
+func (y Yubikey) SetCHUID(chuid []byte) error {
+	cChuid := (*C.ykpiv_cardid)(C.CBytes(chuid))
+	defer C.free(unsafe.Pointer(cChuid))
+	return getError(C.ykpiv_util_set_cardid(y.state, cChuid), "util_set_cardid")
+}
+
+func (y Yubikey) SetCCCID(cccid []byte) error {
+	cCccid := (*C.ykpiv_cccid)(C.CBytes(cccid))
+	defer C.free(unsafe.Pointer(cCccid))
+	return getError(C.ykpiv_util_set_cccid(y.state, cCccid), "util_set_cccid")
+}
+
+func (y Yubikey) SetPINPUKRetries(pin string, pintries int, puktries int) error {
+	cPin := (*C.char)(C.CString(pin))
+	defer C.free(unsafe.Pointer(cPin))
+
+    tries := C.int(0)
+
+    err := getError(C.ykpiv_verify(y.state, cPin, &tries), "verify")
+	if err != nil {
+		panic(err)
+	}
+
+    err = y.Authenticate()
+    if err != nil {
+        panic(err)
+    }
+
+    cPinTries := C.int(pintries)
+    cPukTries := C.int(puktries)
+
+    err = getError(C.ykpiv_set_pin_retries(y.state, cPinTries, cPukTries), "set_pin_retries")
+
+    return err
+}
+
 // PIN Retries
 func (y Yubikey) PINRetries() (int, error) {
 	return y.verify(nil)
