@@ -46,6 +46,9 @@ func main() {
 		version, err := token.Version()
 		ohshit(err)
 		fmt.Printf("Version: %s\n", version)
+		serial, err := token.Serial()
+		ohshit(err)
+		fmt.Printf("Serial:  %d\n", serial)
 
 		for _, slotId := range []ykpiv.SlotId{
 			ykpiv.Authentication,

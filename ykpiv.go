@@ -202,6 +202,14 @@ func (y Yubikey) Version() ([]byte, error) {
 	return C.GoBytes(unsafe.Pointer(cVersion), C.int(cVersionLen)), nil
 }
 
+func (y Yubikey) Serial() (uint32, error) {
+	serial := C.uint(0)
+	if err := getError(C.ykpiv_get_serial(y.state, &serial), "get_serial"); err != nil {
+		return 0, err
+	}
+	return uint32(serial), nil
+}
+
 func (y Yubikey) verify(cPin *C.char) (int, error) {
 	tries := C.int(0)
 	err := getError(C.ykpiv_verify(y.state, cPin, &tries), "verify")
