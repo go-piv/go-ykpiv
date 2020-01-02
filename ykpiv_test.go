@@ -36,6 +36,7 @@ import (
 	"math/big"
 
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -44,6 +45,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 
+	"github.com/aead/ecdh"
 	"pault.ag/go/ykpiv"
 )
 
@@ -515,6 +517,45 @@ func TestMain(m *testing.M) {
 	isDestructive()
 
 	os.Exit(m.Run())
+}
+
+func TestECDH(t *testing.T) {
+	isDestructive()
+
+	curve := elliptic.P256()
+
+	yubikey, closer, err := getYubikey(defaultPIN, defaultPUK)
+	isok(t, err)
+	defer closer()
+
+	isok(t, yubikey.Login())
+	isok(t, yubikey.Authenticate())
+
+	slotid := ykpiv.KeyManagement
+	slot, err := yubikey.GenerateEC(slotid, curve.Params().BitSize)
+	isok(t, err)
+
+	//Create the other side for testing
+	keyEx := ecdh.Generic(curve)
+	peerPrivate, peerPublic, err := keyEx.GenerateKey(rand.Reader)
+	isok(t, err)
+
+	yubiPublic := slot.Public().(*ecdsa.PublicKey)
+	yubiPublicAsPoint := ecdh.Point{X: yubiPublic.X, Y: yubiPublic.Y}
+
+	//Get secret as computed by peer
+	expectedSecret := keyEx.ComputeSecret(peerPrivate, yubiPublicAsPoint)
+
+	//Convert peer's public key into the format required by ykpiv
+	pt := peerPublic.(ecdh.Point)
+	peerPublicOctet := elliptic.Marshal(curve, pt.X, pt.Y)
+
+	//Perform ECDH on the yubikey
+	computedSecret, err := slot.Decrypt(rand.Reader, peerPublicOctet, nil)
+	isok(t, err)
+
+	//Check the two shared secrets match
+	assert(t, bytes.Equal(expectedSecret, computedSecret), "incorrect ECDH secret")
 }
 
 // vim: foldmethod=marker

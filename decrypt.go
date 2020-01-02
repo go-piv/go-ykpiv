@@ -31,6 +31,9 @@ package ykpiv
 import "C"
 
 import (
+	"crypto/ecdsa"
+	"crypto/rsa"
+	"fmt"
 	"io"
 	"unsafe"
 
@@ -39,8 +42,12 @@ import (
 	"pault.ag/go/ykpiv/internal/pkcs1v15"
 )
 
-// Decrypt decrypts ciphertext with the private key backing the Slot we're operating
-// on. This implements the crypto.Decrypter interface.
+// Decrypt implements the crypto.Decrypter interface.
+// If the slot holds an RSA key, then it will decrypt the ciphertext with the
+// private key backing the Slot we're operating on.
+// If the slot holds an EC key, then we will perform ECDH and return the shared
+// secret. In this case, msg must be the peer's public key in octet form, as
+// specified in section 4.3.6 of ANSI X9.62.
 //
 // The `rand` argument is disregarded in favor of the on-chip RNG on the Yubikey
 // The `opts` argument is not used at this time, but may in the future.
@@ -68,7 +75,16 @@ func (s Slot) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) ([]
 		return nil, err
 	}
 
-	return pkcs1v15.Unpad(C.GoBytes(unsafe.Pointer(cPlaintext), C.int(cPlaintextLen)))
+	plaintext := C.GoBytes(unsafe.Pointer(cPlaintext), C.int(cPlaintextLen))
+
+	switch s.PublicKey.(type) {
+	case *rsa.PublicKey:
+		return pkcs1v15.Unpad(plaintext)
+	case *ecdsa.PublicKey:
+		return plaintext, nil
+	default:
+		return nil, fmt.Errorf("unknown slot key type")
+	}
 }
 
 // vim: foldmethod=marker
