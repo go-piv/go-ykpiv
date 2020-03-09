@@ -239,17 +239,10 @@ func (y Yubikey) SetPINPUKRetries(pin string, pintries int, puktries int) error 
 	cPin := (*C.char)(C.CString(pin))
 	defer C.free(unsafe.Pointer(cPin))
 
-    tries := C.int(0)
-
-    err := getError(C.ykpiv_verify(y.state, cPin, &tries), "verify")
+    _, err := y.verify(cPin)
 	if err != nil {
-		panic(err)
+		return err
 	}
-
-    err = y.Authenticate()
-    if err != nil {
-        panic(err)
-    }
 
     cPinTries := C.int(pintries)
     cPukTries := C.int(puktries)
