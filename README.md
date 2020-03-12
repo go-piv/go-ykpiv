@@ -100,6 +100,12 @@ Running on Windows
 4. Copy all DLLs  from the `bin` directory in the archive to the root of your project
 5. Copy `libwinpthread-1.dll` from `C:\TDM-GCC-64\bin` to the root of your project
 
+Related work
+============
+
+Eric Chiang has published [piv-go](https://github.com/ericchiang/piv-go),
+a go implementation of the yubikey piv bindings.
+
 
 LICENSE
 =======
