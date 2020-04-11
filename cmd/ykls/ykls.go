@@ -57,7 +57,7 @@ func main() {
 			ykpiv.KeyManagement,
 		} {
 			slot, err := token.Slot(slotId)
-			if err != nil {
+			if err != nil || slot.Certificate == nil {
 				continue
 			}
 			fmt.Printf("Slot %s: %s\n", slotId, slot.Certificate.Subject.CommonName)
