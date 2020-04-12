@@ -4,12 +4,13 @@ Qurks of ykpiv
 ykpiv.Yubikey.Slot
 ------------------
 
-Slots which have private keys backing them are unable to be loaded since the
-Certificate will fail to be read. This could be fixed by pulling the Public
-Key material for that slot, but I can't find any obvious way to do so, so
-the code only pulls Public Key material from the Certificate in the Slot.
+Slots which have private keys backing them but were not generated on the
+Yubikey are unable to be loaded unless a public certificate has already
+been set. If an attestation key exists, and an attestation certificate
+can be loaded for the slot, the public key will be available. These slots
+will however not have a valid x509 certificate available for authentication.
 
-Basically, the only way to get a Slot with a nill Certificate is to call
+Basically, the only way to get a Slot with a nil Certificate is to call
 the Generation code, where we are actually able to pull the Public Key
 material out, and allow for bootstrapping. The advisable workflow would be
 to generate the key, then sign a CSR to import the Certificate later
