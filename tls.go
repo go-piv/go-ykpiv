@@ -36,6 +36,11 @@ func (slot Slot) TLSCertificate() tls.Certificate {
 		// Decrypt() method for EC keys.
 		privKey = struct{ crypto.Signer }{slot}
 	}
+	if slot.Certificate == nil {
+		return tls.Certificate{
+			PrivateKey: privKey,
+		}
+	}
 	return tls.Certificate{
 		Certificate: [][]byte{slot.Certificate.Raw},
 		PrivateKey:  privKey,
