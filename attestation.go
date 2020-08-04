@@ -23,11 +23,11 @@ package ykpiv
 import (
 	"crypto/x509"
 	"encoding/asn1"
+	"encoding/pem"
 	"fmt"
 )
 
-var (
-	yubicoAttestionRoot2018 []byte = []byte(`
+var yubicoPivAttestationCAs = [][]byte{[]byte(`
 -----BEGIN CERTIFICATE-----
 MIIDFzCCAf+gAwIBAgIDBAZHMA0GCSqGSIb3DQEBCwUAMCsxKTAnBgNVBAMMIFl1
 YmljbyBQSVYgUm9vdCBDQSBTZXJpYWwgMjYzNzUxMCAXDTE2MDMxNDAwMDAwMFoY
@@ -47,8 +47,7 @@ bW5yWvyS9zNXaqGaUmP3U9/b6DlHdDogMLu3VLpBB9bm5bjaKWWJYgWltCVgUbFq
 Fqyi4+JE014cSgR57Jcu3dZiehB6UtAPgad9L5cNvua/IWRmm+ANy3O2LH++Pyl8
 SREzU8onbBsjMg9QDiSf5oJLKvd/Ren+zGY7
 -----END CERTIFICATE-----
-`)
-)
+`)}
 
 var (
 	// OIDs of some Yubikey specific fields. These are present on the forms
@@ -62,30 +61,72 @@ var (
 	oidFormFactor = asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 41482, 3, 9}
 )
 
-// Verify that the attestion certificate is correctly signed by the Yubikey
-// root (provided with this package), as well as verifying that the Attestion
+// Verify that the attestation certificate is correctly signed by the roots in `options`
+//
+// Verify that Attested Certificate is signed by that Attestation Certificate
+//
+// The `attestationCert` is the Certificate from the Yubikey Attestation slot,
+// signed by the provided roots. It should not be a CA Certificate in most cases.
+//
+// The `attestedCert` is the Certificate signed by the Attestation slot asserting
+// that the public key was generated on-chip.
+//
+// The `options` is the set of roots and verification assertions to use when checking
+// the `attestationCert` and `attestedCert`. If the `attestationCert` is not a CA, then
+// the path length of roots given should be increased by one, so that the `attestationCert`
+// can be used as a CA to verify the `attestedCert` back to a trusted root
+func VerifyAttestationWithOptions(attestationCert, attestedCert *x509.Certificate, options x509.VerifyOptions) (verifiedChains [][]*x509.Certificate, err error) {
+	// Verify Attestation Cert against CA
+	if _, err = attestationCert.Verify(options); err != nil {
+		return
+	}
+
+	// Initialize intermediate chains if necessary
+	if options.Intermediates == nil {
+		options.Intermediates = x509.NewCertPool()
+	}
+
+	// Add Attestation Certificate to Trust Store
+	// Since this likely is not and probably should not be a CA we pretend it is
+	// to verify the attested cert to the CAs given in the options
+	if !attestationCert.IsCA {
+		attestationCert.IsCA = true
+		attestationCert.BasicConstraintsValid = true
+		attestationCert.MaxPathLen = 1
+		attestationCert.KeyUsage |= x509.KeyUsageCertSign
+	}
+	options.Intermediates.AddCert(attestationCert)
+
+	return attestedCert.Verify(options)
+}
+
+// Verify that the attestation certificate is correctly signed by the Yubikey
+// root (provided with this package), as well as verifying that the Attestation
 // Certificate is signed by that slot correctly.
 //
-// The `attestationCert` is the Certificate from the Yubikey Attestion slot,
-// signed by the Yubico roots.
+// The `attestationCert` is the Certificate from the Yubikey Attestation slot, signed by
+// the Yubico roots. It is not a CA certificate from Yubico.
 //
-// The `attestedCert` is the Certificate signed by the Attestion slot asserting
+// The `attestedCert` is the Certificate signed by the Attestation slot asserting
 // that the public key was generated on-chip.
 func VerifyAttestation(attestationCert, attestedCert *x509.Certificate) ([][]*x509.Certificate, error) {
 	roots := x509.NewCertPool()
-	if !roots.AppendCertsFromPEM(yubicoAttestionRoot2018) {
-		return nil, fmt.Errorf("ykpiv: INTERNAL ERROR: Attestion Root PEM is wrong!")
+	for _, yubicoPivAttestationCA := range yubicoPivAttestationCAs {
+		block, _ := pem.Decode(yubicoPivAttestationCA)
+		caCert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("ykpiv: INTERNAL ERROR: Attestion Root PEM is wrong!")
+		}
+		// Extend the path length so we can pretend that attestation cert is also a CA
+		caCert.MaxPathLen += 1
+		roots.AddCert(caCert)
 	}
 
-	ints := x509.NewCertPool()
-	attestationCert.IsCA = true
-	attestationCert.BasicConstraintsValid = true
-	ints.AddCert(attestationCert)
+	options := x509.VerifyOptions{
+		Roots: roots,
+	}
 
-	return attestationCert.Verify(x509.VerifyOptions{
-		Roots:         roots,
-		Intermediates: ints,
-	})
+	return VerifyAttestationWithOptions(attestationCert, attestedCert, options)
 }
 
 // Struct with an anonymous member (`x509.Certificate`) that allows you to
@@ -113,8 +154,11 @@ func NewAttestionCertificate(cert *x509.Certificate) (*AttestionCertificate, err
 	for _, extension := range aC.Extensions {
 		switch {
 		case extension.Id.Equal(oidFirmwareVersion):
-			var firmware = [3]byte{extension.Value[0], extension.Value[1],
-				extension.Value[2]}
+			firmware := [3]byte{
+				extension.Value[0],
+				extension.Value[1],
+				extension.Value[2],
+			}
 			aC.FirmwareVersion = &firmware
 			break
 		case extension.Id.Equal(oidSerialNumber):
