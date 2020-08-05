@@ -21,13 +21,15 @@
 package ykpiv
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
 )
 
-var yubicoPivAttestationCAs = [][]byte{[]byte(`
+var yubicoPivAttestationCAs = [][]byte{
+	[]byte(`
 -----BEGIN CERTIFICATE-----
 MIIDFzCCAf+gAwIBAgIDBAZHMA0GCSqGSIb3DQEBCwUAMCsxKTAnBgNVBAMMIFl1
 YmljbyBQSVYgUm9vdCBDQSBTZXJpYWwgMjYzNzUxMCAXDTE2MDMxNDAwMDAwMFoY
@@ -47,7 +49,8 @@ bW5yWvyS9zNXaqGaUmP3U9/b6DlHdDogMLu3VLpBB9bm5bjaKWWJYgWltCVgUbFq
 Fqyi4+JE014cSgR57Jcu3dZiehB6UtAPgad9L5cNvua/IWRmm+ANy3O2LH++Pyl8
 SREzU8onbBsjMg9QDiSf5oJLKvd/Ren+zGY7
 -----END CERTIFICATE-----
-`)}
+`),
+}
 
 var (
 	// OIDs of some Yubikey specific fields. These are present on the forms
@@ -92,7 +95,7 @@ func VerifyAttestationWithOptions(attestationCert, attestedCert *x509.Certificat
 	if !attestationCert.IsCA {
 		attestationCert.IsCA = true
 		attestationCert.BasicConstraintsValid = true
-		attestationCert.MaxPathLen = 1
+		attestationCert.MaxPathLen = 0
 		attestationCert.KeyUsage |= x509.KeyUsageCertSign
 	}
 	options.Intermediates.AddCert(attestationCert)
@@ -110,20 +113,24 @@ func VerifyAttestationWithOptions(attestationCert, attestedCert *x509.Certificat
 // The `attestedCert` is the Certificate signed by the Attestation slot asserting
 // that the public key was generated on-chip.
 func VerifyAttestation(attestationCert, attestedCert *x509.Certificate) ([][]*x509.Certificate, error) {
-	roots := x509.NewCertPool()
+	options := x509.VerifyOptions{
+		Roots:         x509.NewCertPool(),
+		Intermediates: x509.NewCertPool(),
+	}
+
 	for _, yubicoPivAttestationCA := range yubicoPivAttestationCAs {
 		block, _ := pem.Decode(yubicoPivAttestationCA)
 		caCert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
+		if err != nil || !caCert.IsCA {
 			return nil, fmt.Errorf("ykpiv: INTERNAL ERROR: Attestion Root PEM is wrong!")
 		}
 		// Extend the path length so we can pretend that attestation cert is also a CA
 		caCert.MaxPathLen += 1
-		roots.AddCert(caCert)
-	}
-
-	options := x509.VerifyOptions{
-		Roots: roots,
+		if bytes.Equal(caCert.RawIssuer, caCert.RawSubject) {
+			options.Roots.AddCert(caCert)
+		} else {
+			options.Intermediates.AddCert(caCert)
+		}
 	}
 
 	return VerifyAttestationWithOptions(attestationCert, attestedCert, options)
