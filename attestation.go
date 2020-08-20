@@ -75,12 +75,12 @@ var (
 // that the public key was generated on-chip.
 //
 // The `options` is the set of roots and verification assertions to use when checking
-// the `attestationCert` and `attestedCert`. If the `attestationCert` is not a CA, then
-// the path length of roots given should be increased by one, so that the `attestationCert`
-// can be used as a CA to verify the `attestedCert` back to a trusted root
+// the `attestationCert` and `attestedCert`.
 func VerifyAttestationWithOptions(attestationCert, attestedCert *x509.Certificate, options x509.VerifyOptions) (verifiedChains [][]*x509.Certificate, err error) {
-	// Verify Attestation Cert against CA
-	if _, err = attestationCert.Verify(options); err != nil {
+	var attestationChains [][]*x509.Certificate
+
+	// Verify Attestation Cert against using the verify options
+	if attestationChains, err = attestationCert.Verify(options); err != nil {
 		return
 	}
 
@@ -89,18 +89,25 @@ func VerifyAttestationWithOptions(attestationCert, attestedCert *x509.Certificat
 		options.Intermediates = x509.NewCertPool()
 	}
 
-	// Add Attestation Certificate to Trust Store
-	// Since this likely is not and probably should not be a CA we pretend it is
-	// to verify the attested cert to the CAs given in the options
-	if !attestationCert.IsCA {
-		attestationCert.IsCA = true
-		attestationCert.BasicConstraintsValid = true
-		attestationCert.MaxPathLen = 0
-		attestationCert.KeyUsage |= x509.KeyUsageCertSign
+	if attestationCert.IsCA {
+		// Add Attestation Certificate to Trust Store
+		options.Intermediates.AddCert(attestationCert)
+		verifiedChains, err = attestedCert.Verify(options)
+	} else {
+		// Note we cannot use CheckSignatureFrom because the parent is not a CA
+		err = attestationCert.CheckSignature(attestedCert.SignatureAlgorithm,
+			attestedCert.RawTBSCertificate,
+			attestedCert.Signature)
+		// Build chains from the verified attestationChains extending each with
+		// the attested certificate
+		if err == nil {
+			for i := 0; i < len(attestationChains); i++ {
+				attestationChains[i] = append([]*x509.Certificate{attestedCert}, attestationChains[i]...)
+			}
+			verifiedChains = attestationChains
+		}
 	}
-	options.Intermediates.AddCert(attestationCert)
-
-	return attestedCert.Verify(options)
+	return
 }
 
 // Verify that the attestation certificate is correctly signed by the Yubikey
@@ -122,10 +129,8 @@ func VerifyAttestation(attestationCert, attestedCert *x509.Certificate) ([][]*x5
 		block, _ := pem.Decode(yubicoPivAttestationCA)
 		caCert, err := x509.ParseCertificate(block.Bytes)
 		if err != nil || !caCert.IsCA {
-			return nil, fmt.Errorf("ykpiv: INTERNAL ERROR: Attestion Root PEM is wrong!")
+			return nil, fmt.Errorf("ykpiv: INTERNAL ERROR: Attestation Root PEM is wrong!")
 		}
-		// Extend the path length so we can pretend that attestation cert is also a CA
-		caCert.MaxPathLen += 1
 		if bytes.Equal(caCert.RawIssuer, caCert.RawSubject) {
 			options.Roots.AddCert(caCert)
 		} else {
