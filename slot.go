@@ -21,10 +21,7 @@
 package ykpiv
 
 /*
-#cgo darwin LDFLAGS: -L /usr/local/lib -lykpiv
-#cgo darwin CFLAGS: -I/usr/local/include/ykpiv/
-#cgo linux LDFLAGS: -lykpiv
-#cgo linux CFLAGS: -I/usr/include/ykpiv/
+#cgo pkg-config: ykpiv
 #include <ykpiv.h>
 #include <stdlib.h>
 */
@@ -144,17 +141,23 @@ func (y Yubikey) KeyManagement() (*Slot, error) {
 // Get a Slot off of the Yubikey by the SlotId.
 //
 // This will trigger an attempt to get (and parse) the x509 Certificate
-// for this slot. Only slots with an x509 Certificate can be used.
+// for this slot. Only slots with an x509 Certificate can be used on
+// firmware < 4.3. On firmware >= 4.3 any slots with a private key generated
+// on the Yuibkey can be used if attestation key is present.
 func (y Yubikey) Slot(id SlotId) (*Slot, error) {
 	/* Right, let's see what we can do here */
 	slot := Slot{yubikey: y, Id: id}
 
 	certificate, err := slot.GetCertificate()
 	if err != nil {
-		return nil, err
+		var errAttest error
+		certificate, errAttest = y.Attest(id)
+		if errAttest != nil {
+			return nil, err
+		}
+	} else {
+		slot.Certificate = certificate
 	}
-
-	slot.Certificate = certificate
 	slot.PublicKey = certificate.PublicKey
 
 	return &slot, nil

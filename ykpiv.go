@@ -24,12 +24,7 @@ package ykpiv
 //      when I build it. For now this will keep it quiet :\
 
 /*
-#cgo darwin LDFLAGS: -L /usr/local/lib -lykpiv
-#cgo darwin CFLAGS: -I/usr/local/include/ykpiv/
-#cgo linux LDFLAGS: -lykpiv -Wl,--allow-multiple-definition
-#cgo linux CFLAGS: -I/usr/include/ykpiv/
-#cgo windows CFLAGS: -I./win/include/ykpiv/
-#cgo windows LDFLAGS: ./win/lib/libykpiv.dll.a
+#cgo pkg-config: ykpiv
 #include <ykpiv.h>
 #include <stdlib.h>
 */
@@ -203,7 +198,7 @@ func (y Yubikey) Version() ([]byte, error) {
 }
 
 func (y Yubikey) Serial() (uint32, error) {
-	serial := C.uint(0)
+	serial := C.uint32_t(0)
 	if err := getError(C.ykpiv_get_serial(y.state, &serial), "get_serial"); err != nil {
 		return 0, err
 	}
@@ -566,8 +561,9 @@ func (y Yubikey) GetCertificate(slotId SlotId) (*x509.Certificate, error) {
 // find the correct Yubikey, initialize the underlying state, and ensure
 // the right bits are set.
 func New(opts Options) (*Yubikey, error) {
+	var state *C.ykpiv_state
 	yubikey := Yubikey{
-		state:   &C.ykpiv_state{},
+		state:   state,
 		options: opts,
 	}
 
@@ -595,7 +591,7 @@ func New(opts Options) (*Yubikey, error) {
 // "Reader" argument in ykpiv.Options, and may include things ykpiv can't talk
 // to.
 func Readers() ([]string, error) {
-	state := &C.ykpiv_state{}
+	var state *C.ykpiv_state
 
 	if err := getError(C.ykpiv_init(&state, C.int(0)), "init"); err != nil {
 		return nil, err
