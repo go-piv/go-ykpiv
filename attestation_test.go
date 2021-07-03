@@ -26,6 +26,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"testing"
+	"time"
 )
 
 const attestationYubikeySerialNumber = 10231423
@@ -75,7 +76,78 @@ ztdH0PRnJDab60YKqgVRKc+IViSoIpfb7xLpukZa2Mtf6AQcDsSL2y5sQvAmem4N
 -----END CERTIFICATE-----
 `)
 
-func parsePem(pemBytes []byte) (*x509.Certificate, error) {
+var customSignedAttestationCertificateBytes = []byte(`
+-----BEGIN CERTIFICATE-----
+MIICbzCCAfSgAwIBAgIRAOnRQVt+bbLswgq1eVA2dhcwCgYIKoZIzj0EAwIwIjEg
+MB4GA1UEAxMXWXViaWtleSBQSVYgQXR0ZXN0YXRpb24wHhcNMjEwNzAyMjMyNjIw
+WhcNMjIwNzAyMjMyNzIwWjAlMSMwIQYDVQQDDBpZdWJpS2V5IFBJViBBdHRlc3Rh
+dGlvbiA5YTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAOOpKaDcPU/E
+CQl1oiJaP7dHR1hjQuRBatxk0XpctBENLgOH5kPBm6kV1lV1ocEJ7lR9lDmA0lb8
+HcNPfovan5rIJR7fRkIpMFxOQQlk+pv8Fz618JTwVP83nG6b+FjRDrAiqYKgECHO
+uUkklrSMiE/wpS5Whcb8/sMmoDT3BY2IplYJt7Bn5tZ4XesfcLfyrks7+6jqVhPY
+B3oc/59rXcXVKgP0fxIDgonzw75vgTzfaFi1dU+fv2UeWleI+MAnpc8e4fQfrYgO
+3MRK58KrkHJ30455u/fggBLdU5SK2vyodB4DfUJnFtosTiN1cGyjgvoCp+I8rrtu
+4Ci27d0S8HkCAwEAAaM9MDswEQYKKwYBBAGCxAoDAwQDBAQFMBQGCisGAQQBgsQK
+AwcEBgIEAJwefzAQBgorBgEEAYLECgMIBAICATAKBggqhkjOPQQDAgNpADBmAjEA
+i7jSnotfEXX5n1U18iDfdLiFn7je3qxX0iNYNhrMeHJX2TSA1qBLn7VIHeEv2uIn
+AjEAgwMRfyYvQPrbcOf2cOeYAQ86LH/fdQqOb8Yn7i6qqT3RhRN0eIhJwjgCXL8b
+8Qmz
+-----END CERTIFICATE-----
+`)
+
+var customAttestationSigningCertificateBytes = []byte(`
+-----BEGIN CERTIFICATE-----
+MIICejCCAiCgAwIBAgIRANq8x4/ed0VADwwfIViCziwwCgYIKoZIzj0EAwIwZDEo
+MCYGA1UEChMfU21hbGxzdGVwIENlcnRpZmljYXRlIEF1dGhvcml0eTE4MDYGA1UE
+AxMvU21hbGxzdGVwIENlcnRpZmljYXRlIEF1dGhvcml0eSBJbnRlcm1lZGlhdGUg
+Q0EwHhcNMjEwNzAyMjMyNjIwWhcNMjIwNzAyMjMyNzIwWjAiMSAwHgYDVQQDExdZ
+dWJpa2V5IFBJViBBdHRlc3RhdGlvbjB2MBAGByqGSM49AgEGBSuBBAAiA2IABMPx
+QDGvyewygsqTEd86ueYrBP5ww0102fB2sOG8IUNlJ5KktZVEehFl7FIVbjsQGUnq
+JCGafe2eXvDJC5osc0cX7BceV1ZfXnvPPquO47px2QtqBPuyh8qv09C2tzjapaOB
+1zCB1DAOBgNVHQ8BAf8EBAMCBkAwHQYDVR0OBBYEFMSGFvGO4rke9hI1geRK1oEM
+YCDeMB8GA1UdIwQYMBaAFMryYsrYO0gHSi1e+IB697G/usLuMCIGA1UdEQQbMBmC
+F1l1YmlrZXkgUElWIEF0dGVzdGF0aW9uMF4GDCsGAQQBgqRkxihAAQROMEwCAQEE
+GmJsdWVzdGVhbHRoQGJsdWVzdGVhbHRoLnB3BCtxTFByY3lmdU5Vdi1Yd2IyckVJ
+SkRFLTNDXy12NzdWZUQ4OWhzdk8wemVRMAoGCCqGSM49BAMCA0gAMEUCICyFrut1
+QxhMJ/idYC6SSQTBnCf9q77vZl4er7TvqRblAiEAkRQVVu5X+hKLHhLeUFqSevtr
+l9cXKAJWCZuLJERHKAY=
+-----END CERTIFICATE-----
+`)
+
+var customCABytes = [][]byte{
+	[]byte(`
+-----BEGIN CERTIFICATE-----
+MIICJTCCAcugAwIBAgIRAOahmSGjdYIOokeTskTboO8wCgYIKoZIzj0EAwIwXDEo
+MCYGA1UEChMfU21hbGxzdGVwIENlcnRpZmljYXRlIEF1dGhvcml0eTEwMC4GA1UE
+AxMnU21hbGxzdGVwIENlcnRpZmljYXRlIEF1dGhvcml0eSBSb290IENBMB4XDTIx
+MDcwMjIwNTUxNVoXDTMxMDYzMDIwNTUxNVowZDEoMCYGA1UEChMfU21hbGxzdGVw
+IENlcnRpZmljYXRlIEF1dGhvcml0eTE4MDYGA1UEAxMvU21hbGxzdGVwIENlcnRp
+ZmljYXRlIEF1dGhvcml0eSBJbnRlcm1lZGlhdGUgQ0EwWTATBgcqhkjOPQIBBggq
+hkjOPQMBBwNCAASyIaRXzoQAh/3KAXsPiPT9F4GSZjx6d196YQcOHDpwnAgQK673
+qZRMC66JxKLbOktOU5x4h8w/FQZrJgaJr2Y2o2YwZDAOBgNVHQ8BAf8EBAMCAQYw
+EgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQUyvJiytg7SAdKLV74gHr3sb+6
+wu4wHwYDVR0jBBgwFoAUDAUw3LkOq/lk4wyu8MT8/KzC+JUwCgYIKoZIzj0EAwID
+SAAwRQIgajYwweI1RXGxL5fAzYTJ/RdkmJ2AyXDuR4yZ9iMKAPgCIQCtuaOcL5Lr
+/bHTNp86fL/DNLUkVN4hb8GGb0a4ahcWtA==
+-----END CERTIFICATE-----
+`), []byte(`
+-----BEGIN CERTIFICATE-----
+MIIB/TCCAaKgAwIBAgIRAMOGyeMi8guIr3cmDGnbGQ4wCgYIKoZIzj0EAwIwXDEo
+MCYGA1UEChMfU21hbGxzdGVwIENlcnRpZmljYXRlIEF1dGhvcml0eTEwMC4GA1UE
+AxMnU21hbGxzdGVwIENlcnRpZmljYXRlIEF1dGhvcml0eSBSb290IENBMB4XDTIx
+MDcwMjIwNTUxM1oXDTMxMDYzMDIwNTUxM1owXDEoMCYGA1UEChMfU21hbGxzdGVw
+IENlcnRpZmljYXRlIEF1dGhvcml0eTEwMC4GA1UEAxMnU21hbGxzdGVwIENlcnRp
+ZmljYXRlIEF1dGhvcml0eSBSb290IENBMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcD
+QgAEAo4lg5M4cjKljjdBFu9X8e1Y9YCdaKdODQcoa3FaSgiFN3mF7WJPuKIcpqIP
+F88j6b96CCiZqzr7MeZV6UqtgKNFMEMwDgYDVR0PAQH/BAQDAgEGMBIGA1UdEwEB
+/wQIMAYBAf8CAQEwHQYDVR0OBBYEFAwFMNy5Dqv5ZOMMrvDE/PyswviVMAoGCCqG
+SM49BAMCA0kAMEYCIQCmWQcc69OTtL4w10F4fG5JaR4UFKh1rUIQpEKFW98d7QIh
+AOspoifFYQGC5zPbwFNoj/CZxcnVE3Fz3a/KKX+lerGN
+-----END CERTIFICATE-----
+`),
+}
+
+func parseCertificate(pemBytes []byte) (*x509.Certificate, error) {
 	parsed, _ := pem.Decode(pemBytes)
 	if parsed == nil {
 		return nil, fmt.Errorf("could not parse pem block")
@@ -83,12 +155,34 @@ func parsePem(pemBytes []byte) (*x509.Certificate, error) {
 	return x509.ParseCertificate(parsed.Bytes)
 }
 
+func parseCABundle(bundle [][]byte) (x509.VerifyOptions, error) {
+	options := x509.VerifyOptions{
+		Intermediates: x509.NewCertPool(),
+		Roots:         x509.NewCertPool(),
+	}
+
+	for _, certBytes := range bundle {
+		parsed, _ := pem.Decode(certBytes)
+		certificate, err := x509.ParseCertificate(parsed.Bytes)
+		if err != nil {
+			return x509.VerifyOptions{}, err
+		}
+		if bytes.Equal(certificate.RawIssuer, certificate.RawSubject) {
+			options.Roots.AddCert(certificate)
+		} else {
+			options.Intermediates.AddCert(certificate)
+		}
+	}
+
+	return options, nil
+}
+
 func TestVerifyAttestation(t *testing.T) {
-	signedCertificate, err := parsePem(signedAttestationCertificateBytes)
+	signedCertificate, err := parseCertificate(signedAttestationCertificateBytes)
 	if err != nil {
 		t.Fatalf("could not parse attested certificate %s", err)
 	}
-	signingCertificate, err := parsePem(attestationSigningCertificateBytes)
+	signingCertificate, err := parseCertificate(attestationSigningCertificateBytes)
 	if err != nil {
 		t.Fatalf("could not parse attestation certificate %s", err)
 	}
@@ -96,11 +190,47 @@ func TestVerifyAttestation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not verify attested certificate %s", err)
 	}
-	for ichain, chain := range chains {
-		t.Log("attestation certificate verified chain:")
-		for icert, cert := range chain {
-			t.Logf("[%d][%d]: %s", ichain, icert, cert.Subject.CommonName)
-		}
+	if len(chains) == 0 {
+		t.Fatalf("expected at least one verified chain to be returned")
+	}
+	attestationCertificate, err := NewAttestionCertificate(signedCertificate)
+	if err != nil {
+		t.Fatalf("could not parse attestation certificate %s", err)
+	}
+	if attestationCertificate.SerialNumber == nil {
+		t.Fatal("serial number present but not decoded")
+	}
+	if *attestationCertificate.SerialNumber != attestationYubikeySerialNumber {
+		t.Fatalf("decoded serial number %d did not match %d", *attestationCertificate.SerialNumber, attestationYubikeySerialNumber)
+	}
+	if attestationCertificate.FirmwareVersion == nil {
+		t.Fatal("firmware version present but not decoded")
+	}
+	if bytes.Compare((*attestationCertificate.FirmwareVersion)[:], attestationYubikeyFirmwareVersion[:]) != 0 {
+		t.Fatalf("decoded firmware version %v did not match expected version %v", *attestationCertificate.FirmwareVersion, attestationYubikeyFirmwareVersion)
+	}
+}
+
+func TestVerifyAttestationWithOptions(t *testing.T) {
+	options, err := parseCABundle(customCABytes)
+	if err != nil {
+		t.Fatalf("could not parse attestation chain %s", err)
+	}
+	signedCertificate, err := parseCertificate(customSignedAttestationCertificateBytes)
+	if err != nil {
+		t.Fatalf("could not parse attested certificate %s", err)
+	}
+	signingCertificate, err := parseCertificate(customAttestationSigningCertificateBytes)
+	if err != nil {
+		t.Fatalf("could not parse attestation certificate %s", err)
+	}
+	options.CurrentTime = signedCertificate.NotBefore.Add(1 * time.Second)
+	chains, err := VerifyAttestationWithOptions(signingCertificate, signedCertificate, options)
+	if err != nil {
+		t.Fatalf("could not verify attested certificate %s", err)
+	}
+	if len(chains) == 0 {
+		t.Fatalf("expected at least one verified chain to be returned")
 	}
 	attestationCertificate, err := NewAttestionCertificate(signedCertificate)
 	if err != nil {
