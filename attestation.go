@@ -82,7 +82,7 @@ func VerifyAttestation(attestationCert, attestedCert *x509.Certificate) ([][]*x5
 	attestationCert.BasicConstraintsValid = true
 	ints.AddCert(attestationCert)
 
-	return attestationCert.Verify(x509.VerifyOptions{
+	return attestedCert.Verify(x509.VerifyOptions{
 		Roots:         roots,
 		Intermediates: ints,
 	})
